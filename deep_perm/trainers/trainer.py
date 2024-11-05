@@ -10,6 +10,7 @@ from utils.dataiq_utils import classify_examples
 from utils.logger import setup_logger
 from utils.metrics import calculate_metrics
 from utils.training_utils import update_metrics_per_epoch
+from visualization import VisualizationManager
 
 
 class PermeabilityTrainer:
@@ -111,11 +112,21 @@ class PermeabilityTrainer:
         for metric_name, value in final_test_metrics.items():
             self.logger.info(f"{metric_name}: {value:.4f}")
 
+        # Load visualization manager
+        viz = VisualizationManager(self.output_dir)
+
+        # Plot training metrics
+        viz.plot_metrics(self.metrics_per_epoch, final_test_metrics)
+
         # DataIQ analysis
         avg_confidence = np.mean(np.array(self.metrics_per_epoch["confidence"]), axis=0)
         avg_aleatoric = np.mean(np.array(self.metrics_per_epoch["aleatoric"]), axis=0)
 
         groups = classify_examples(avg_confidence, avg_aleatoric)
+
+        # Create DataIQ visualizations
+        viz.plot_dataiq_scatter(avg_confidence, avg_aleatoric, groups)
+        viz.plot_training_dynamics(self.metrics_per_epoch, groups)
 
         return dataiq, groups, final_test_metrics
 

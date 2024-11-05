@@ -291,11 +291,11 @@ def main():
         for metric_name, value in final_metrics.items():
             logger.info(f"{metric_name}: {value:.4f}")
 
-        # Generate feature distribution plots
-        logger.info("Generating feature distribution plots...")
-        viz = VisualizationManager(output_dir)
-        for feature_idx in range(X.shape[1]):
-            viz.plot_feature_distributions(X_train, X_val, X_test, feature_idx=feature_idx)
+        # # Generate feature distribution plots
+        # logger.info("Generating feature distribution plots...")
+        # viz = VisualizationManager(output_dir)
+        # for feature_idx in range(X.shape[1]):
+        #     viz.plot_feature_distributions(X_train, X_val, X_test, feature_idx=feature_idx)
 
         # Save all results
         logger.info("Saving experiment results...")
