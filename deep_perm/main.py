@@ -1,5 +1,6 @@
 import argparse
 import json
+import uuid
 from dataclasses import asdict
 from pathlib import Path
 
@@ -150,6 +151,30 @@ class FeatureImportanceAnalyzer:
     def __init__(self, output_dir):
         self.output_dir = Path(output_dir)
         self.viz = VisualizationManager(output_dir)
+
+    def _get_baseline_ambiguity(self, X, y, smiles, config, device):
+        """Get baseline ambiguity percentage for given features"""
+        # Create data splits
+        splits = create_data_splits(X, y, smiles)
+        X_train, X_val, X_test, y_train, y_val, y_test, smiles_train, smiles_val, smiles_test = splits
+
+        # Create datasets and loaders
+        train_dataset = PermeabilityDataset(X_train, y_train)
+        val_dataset = PermeabilityDataset(X_val, y_val)
+        test_dataset = PermeabilityDataset(X_test, y_test)
+
+        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
+        test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
+
+        # Train model
+        model = PermeabilityNet(ModelConfig(input_size=X.shape[1])).to(device)
+        trainer = PermeabilityTrainer(model, config, device, self.output_dir / f"temp_{uuid.uuid4()}")
+        dataiq, groups, _ = trainer.train(train_loader, val_loader, test_loader)
+
+        # Calculate ambiguity percentage
+        ambig_pct = (groups == "Ambiguous").mean() * 100
+        return ambig_pct
 
     def analyze_feature_importance(self, X, y, smiles, feature_names, config, device):
         """Analyze how each feature contributes to reducing ambiguity"""
