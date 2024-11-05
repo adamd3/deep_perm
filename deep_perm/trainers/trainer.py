@@ -10,7 +10,7 @@ from utils.dataiq_utils import classify_examples
 from utils.logger import setup_logger
 from utils.metrics import calculate_metrics
 from utils.training_utils import update_metrics_per_epoch
-from visualization import VisualizationManager
+from utils.visualization import VisualizationManager
 
 
 class PermeabilityTrainer:
