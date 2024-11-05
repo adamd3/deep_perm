@@ -4,39 +4,45 @@ from sklearn.preprocessing import StandardScaler
 
 
 class DataPreprocessor:
-    """Data preprocessor for the cell painting dataset"""
+    """Class to preprocess data for model training"""
 
-    def __init__(self, threshold: float = 200):
+    def __init__(self, threshold=200):
         self.threshold = threshold
         self.scaler = StandardScaler()
 
-    def handle_outliers(self, df: pd.DataFrame, threshold: float = 3) -> pd.DataFrame:
-        """Clip outliers in the dataset"""
-        df_clean = df.copy()
-        for col in df_clean.columns:
-            if df_clean[col].dtype.kind in "fc":
-                mean, std = df_clean[col].mean(), df_clean[col].std()
-                df_clean[col] = df_clean[col].clip(lower=mean - threshold * std, upper=mean + threshold * std)
-        return df_clean
-
-    def prepare_data(
-        self, predictors_df: pd.DataFrame, outcomes_df: pd.DataFrame
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Preprocess the data for training"""
-        # Validation and merging
+    def prepare_data(self, predictors_df, outcomes_df):
+        """Prepare data, keeping only predictor columns and target variable"""
         if not isinstance(predictors_df, pd.DataFrame) or not isinstance(outcomes_df, pd.DataFrame):
             raise TypeError("Inputs must be pandas DataFrames")
 
         merged_df = pd.merge(predictors_df, outcomes_df, on="Smiles", how="inner")
 
-        # Create binary outcome
-        y = (merged_df["AVG_cells"] >= self.threshold).astype(int)
         smiles = merged_df["Smiles"]
+        target = merged_df["AVG_cells"]
 
-        # Feature processing
-        feature_cols = [col for col in merged_df.columns if col not in ["Smiles", "AVG_cells"]]
+        feature_cols = [col for col in predictors_df.columns if col != "Smiles"]
         X = merged_df[feature_cols]
-        X = self.handle_outliers(X)
-        X = self.scaler.fit_transform(X)
 
-        return X.astype(np.float32), y.values.astype(np.float32), smiles.values
+        print("\nData Summary:")
+        print(f"Number of samples: {len(merged_df)}")
+        print(f"Number of features: {len(feature_cols)}")
+        print("\nFeature names:", feature_cols)
+        print("\nFeature types:")
+        print(X.dtypes)
+
+        # Handle missing values in features
+        X = X.replace([np.inf, -np.inf], np.nan)
+        X = X.fillna(X.median())
+
+        # Scale features
+        X_scaled = self.scaler.fit_transform(X)
+
+        # Create binary outcome based on threshold
+        y = (target >= self.threshold).astype(int)
+
+        print("\nFinal shapes:")
+        print(f"X: {X_scaled.shape}")
+        print(f"y: {y.shape}")
+        print(f"Class distribution: {np.mean(y):.2%} positive")
+
+        return X_scaled.astype(np.float32), y.values.astype(np.float32), smiles.value
