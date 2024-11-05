@@ -10,7 +10,7 @@ class ModelConfig:
     dropout_rates: list[float] = None
     learning_rate: float = 1e-3
     batch_size: int = 32
-    epochs: int = 100
+    epochs: int = 20
     early_stopping_patience: int = 10
     permeability_threshold: float = 200
 
