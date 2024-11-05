@@ -101,7 +101,7 @@ class PermeabilityTrainer:
             self.scheduler.step()
 
         # Load best model for final evaluation
-        checkpoint = torch.load(best_model_path, weights_only=True)
+        checkpoint = torch.load(best_model_path)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
         # Get final test metrics
