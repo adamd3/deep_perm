@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from trainers.trainer import PermeabilityTrainer
 from utils.chemical_utils import analyze_chemical_similarity
 from utils.logger import setup_logger
-from visualization import VisualizationManager
+from utils.visualization import VisualizationManager
 
 
 def validate_splits(X_train, X_val, X_test, y_train, y_val, y_test):
