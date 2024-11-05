@@ -112,11 +112,9 @@ class PermeabilityTrainer:
             self.logger.info(f"{metric_name}: {value:.4f}")
 
         # DataIQ analysis
-        aleatorics = np.array(dataiq.aleatoric)  # Shape should be [n_epochs, n_samples]
-        confidences = np.array(dataiq.confidence)  # Shape should be [n_epochs, n_samples]
+        avg_confidence = np.mean(np.array(self.metrics_per_epoch["confidence"]), axis=0)
+        avg_aleatoric = np.mean(np.array(self.metrics_per_epoch["aleatoric"]), axis=0)
 
-        avg_aleatoric = np.mean(aleatorics, axis=0)
-        avg_confidence = np.mean(confidences, axis=0)
         groups = classify_examples(avg_confidence, avg_aleatoric)
 
         return dataiq, groups, final_test_metrics
