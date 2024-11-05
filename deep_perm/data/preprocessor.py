@@ -45,4 +45,4 @@ class DataPreprocessor:
         print(f"y: {y.shape}")
         print(f"Class distribution: {np.mean(y):.2%} positive")
 
-        return X_scaled.astype(np.float32), y.values.astype(np.float32), smiles.value
+        return X_scaled.astype(np.float32), y.values.astype(np.float32), smiles.values
