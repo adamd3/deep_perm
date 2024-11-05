@@ -101,7 +101,7 @@ class PermeabilityTrainer:
             self.scheduler.step()
 
         # Load best model for final evaluation
-        checkpoint = torch.load(best_model_path)
+        checkpoint = torch.load(best_model_path, weights_only=True)
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
         # Get final test metrics
@@ -111,9 +111,12 @@ class PermeabilityTrainer:
         for metric_name, value in final_test_metrics.items():
             self.logger.info(f"{metric_name}: {value:.4f}")
 
-        # Calculate DataIQ group assignments
-        avg_aleatoric = np.mean(dataiq.aleatoric, axis=0)
-        avg_confidence = np.mean(dataiq.confidence, axis=0)
+        # DataIQ analysis
+        aleatorics = np.array(dataiq.aleatoric)  # Shape should be [n_epochs, n_samples]
+        confidences = np.array(dataiq.confidence)  # Shape should be [n_epochs, n_samples]
+
+        avg_aleatoric = np.mean(aleatorics, axis=0)
+        avg_confidence = np.mean(confidences, axis=0)
         groups = classify_examples(avg_confidence, avg_aleatoric)
 
         return dataiq, groups, final_test_metrics
