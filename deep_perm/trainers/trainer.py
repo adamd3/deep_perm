@@ -4,9 +4,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from data_iq.dataiq_class import DataIQ_Torch
-from data_iq.dataiq_utils import classify_examples
 from torch import optim
 from tqdm import tqdm
+from utils.dataiq_utils import classify_examples
 from utils.logger import setup_logger
 from utils.metrics import calculate_metrics
 from utils.utils import update_metrics_per_epoch
