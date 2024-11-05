@@ -1,6 +1,5 @@
 import argparse
 import json
-import uuid
 from dataclasses import asdict
 from pathlib import Path
 
@@ -167,9 +166,13 @@ class FeatureImportanceAnalyzer:
         val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
         test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
 
+        # Create temporary directory for this run
+        temp_dir = self.output_dir / "temp_features"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
         # Train model
         model = PermeabilityNet(ModelConfig(input_size=X.shape[1])).to(device)
-        trainer = PermeabilityTrainer(model, config, device, self.output_dir / f"temp_{uuid.uuid4()}")
+        trainer = PermeabilityTrainer(model, config, device, temp_dir)
         dataiq, groups, _ = trainer.train(train_loader, val_loader, test_loader)
 
         # Calculate ambiguity percentage
