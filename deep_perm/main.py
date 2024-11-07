@@ -265,6 +265,8 @@ def main():
     parser.add_argument("--outcomes", type=str, required=True, help="Path to outcomes TSV file")
     parser.add_argument("--output-dir", type=str, default="results", help="Directory to save results")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument("--importance", action="store_true", help="Run feature importance analysis")
+
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -336,22 +338,23 @@ def main():
             percentage = (count / len(groups)) * 100
             logger.info(f"{group}: {count} samples ({percentage:.1f}%)")
 
-        # Get feature names (assuming they're in your predictors file)
-        feature_names = [col for col in pd.read_csv(args.predictors, sep="\t").columns if col not in ["Smiles"]]
+        if args.importance:
+            # Get feature names (assuming they're in your predictors file)
+            feature_names = [col for col in pd.read_csv(args.predictors, sep="\t").columns if col not in ["Smiles"]]
 
-        # Analyze feature importance
-        logger.info("Analyzing feature importance based on ambiguity reduction...")
-        analyzer = FeatureImportanceAnalyzer(output_dir)
-        importance_results = analyzer.analyze_feature_importance(X, y, smiles, feature_names, config, device)
+            # Analyze feature importance
+            logger.info("Analyzing feature importance based on ambiguity reduction...")
+            analyzer = FeatureImportanceAnalyzer(output_dir)
+            importance_results = analyzer.analyze_feature_importance(X, y, smiles, feature_names, config, device)
 
-        # Log top features
-        logger.info("\nTop 10 features for reducing ambiguity:")
-        for _, row in importance_results.head(10).iterrows():
-            logger.info(
-                f"{row['feature_name']}: "
-                f"{row['ambiguity_reduction']:.2f}% reduction "
-                f"(from {row['baseline_ambiguity']:.1f}% to {row['feature_ambiguity']:.1f}%)"
-            )
+            # Log top features
+            logger.info("\nTop 10 features for reducing ambiguity:")
+            for _, row in importance_results.head(10).iterrows():
+                logger.info(
+                    f"{row['feature_name']}: "
+                    f"{row['ambiguity_reduction']:.2f}% reduction "
+                    f"(from {row['baseline_ambiguity']:.1f}% to {row['feature_ambiguity']:.1f}%)"
+                )
 
     except Exception:
         logger.exception("An error occurred during training:")
