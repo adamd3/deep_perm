@@ -267,6 +267,15 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--importance", action="store_true", help="Run feature importance analysis")
     parser.add_argument("--early-stopping", action="store_true", help="Enable early stopping")
+    parser.add_argument(
+        "--conf-upper", type=float, default=0.75, help="Upper confidence threshold for DataIQ classification"
+    )
+    parser.add_argument(
+        "--conf-lower", type=float, default=0.25, help="Lower confidence threshold for DataIQ classification"
+    )
+    parser.add_argument(
+        "--aleatoric-percentile", type=float, default=50, help="Percentile threshold for aleatoric uncertainty"
+    )
 
     args = parser.parse_args()
 
@@ -291,7 +300,13 @@ def main():
         )
 
         # Create config
-        config = ModelConfig(input_size=X.shape[1], use_early_stopping=args.early_stopping)
+        config = ModelConfig(
+            input_size=X.shape[1],
+            use_early_stopping=args.early_stopping,
+            conf_upper=args.conf_upper,
+            conf_lower=args.conf_lower,
+            aleatoric_percentile=args.aleatoric_percentile,
+        )
         logger.info(f"Created model config: {config}")
 
         # Create train/val/test splits

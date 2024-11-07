@@ -123,7 +123,13 @@ class PermeabilityTrainer:
         avg_confidence = np.mean(np.array(self.metrics_per_epoch["confidence"]), axis=0)
         avg_aleatoric = np.mean(np.array(self.metrics_per_epoch["aleatoric"]), axis=0)
 
-        groups = classify_examples(avg_confidence, avg_aleatoric)
+        groups = classify_examples(
+            avg_confidence,
+            avg_aleatoric,
+            conf_upper=self.config.conf_upper,
+            conf_lower=self.config.conf_lower,
+            aleatoric_percentile=self.config.aleatoric_percentile,
+        )
 
         # Create DataIQ visualizations
         viz.plot_dataiq_scatter(avg_confidence, avg_aleatoric, groups)

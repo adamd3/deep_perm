@@ -15,6 +15,11 @@ class ModelConfig:
     early_stopping_patience: int = 10
     permeability_threshold: float = 200
 
+    # DataIQ parameters
+    conf_upper: float = 0.75
+    conf_lower: float = 0.25
+    aleatoric_percentile: float = 50
+
     def __post_init__(self):
         if self.hidden_sizes is None:
             self.hidden_sizes = [
