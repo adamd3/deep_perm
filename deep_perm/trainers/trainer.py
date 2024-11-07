@@ -95,9 +95,10 @@ class PermeabilityTrainer:
             else:
                 patience_counter += 1
 
-            if patience_counter >= self.config.early_stopping_patience:
-                self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
-                break
+            if self.config.use_early_stopping:
+                if patience_counter >= self.config.early_stopping_patience:
+                    self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
+                    break
 
             self.scheduler.step()
 

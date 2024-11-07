@@ -266,6 +266,7 @@ def main():
     parser.add_argument("--output-dir", type=str, default="results", help="Directory to save results")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--importance", action="store_true", help="Run feature importance analysis")
+    parser.add_argument("--early-stopping", action="store_true", help="Enable early stopping")
 
     args = parser.parse_args()
 
@@ -290,7 +291,7 @@ def main():
         )
 
         # Create config
-        config = ModelConfig(input_size=X.shape[1])
+        config = ModelConfig(input_size=X.shape[1], use_early_stopping=args.early_stopping)
         logger.info(f"Created model config: {config}")
 
         # Create train/val/test splits
