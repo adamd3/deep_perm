@@ -10,15 +10,27 @@ class DataPreprocessor:
         self.threshold = threshold
         self.scaler = StandardScaler()
 
-    def prepare_data(self, predictors_df, outcomes_df):
+    def prepare_data(self, predictors_df, outcomes_df, target_col="AVG_cells"):
         """Prepare data, keeping only predictor columns and target variable"""
         if not isinstance(predictors_df, pd.DataFrame) or not isinstance(outcomes_df, pd.DataFrame):
             raise TypeError("Inputs must be pandas DataFrames")
 
-        merged_df = pd.merge(predictors_df, outcomes_df, on="Smiles", how="inner")
+        # merged_df = pd.merge(predictors_df, outcomes_df, on="Smiles", how="inner")
+
+        # Convert column names to lowercase
+        predictors_df.columns = predictors_df.columns.str.lower()
+        outcomes_df.columns = outcomes_df.columns.str.lower()
+
+        if "smiles" in predictors_df.columns and "smiles" in outcomes_df.columns:
+            merged_df = pd.merge(predictors_df, outcomes_df, on="smiles", how="inner")
+        elif "name" in predictors_df.columns and "name" in outcomes_df.columns:
+            merged_df = pd.merge(predictors_df, outcomes_df, on="name", how="inner")
+        else:
+            raise ValueError("Neither 'smiles' nor 'name' columns are shared between the input files.")
 
         smiles = merged_df["Smiles"]
-        target = merged_df["AVG_cells"]
+        # target = merged_df["AVG_cells"]
+        target = merged_df[target_col]
 
         feature_cols = [col for col in predictors_df.columns if col != "Smiles"]
         X = merged_df[feature_cols]

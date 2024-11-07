@@ -273,6 +273,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train permeability prediction model")
     parser.add_argument("--predictors", type=str, required=True, help="Path to predictors TSV file")
     parser.add_argument("--outcomes", type=str, required=True, help="Path to outcomes TSV file")
+    parser.add_argument("--target-col", type=str, required=True, help="Target (outcome) variable column name")
     parser.add_argument("--output-dir", type=str, default="results", help="Directory to save results")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--importance", action="store_true", help="Run feature importance analysis")
@@ -313,7 +314,7 @@ def main():
         logger.info("Loading and preprocessing data...")
         preprocessor = DataPreprocessor()
         X, y, smiles = preprocessor.prepare_data(
-            pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t")
+            pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t"), args.target_col
         )
 
         # Create config
