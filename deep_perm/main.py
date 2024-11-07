@@ -109,7 +109,7 @@ def create_data_splits(X, y, smiles, test_size=0.2, val_size=0.1, random_state=4
     return X_train, X_val, X_test, y_train, y_val, y_test, smiles_train, smiles_val, smiles_test
 
 
-def save_experiment_results(output_dir: str, dataiq, groups, final_metrics, model, config):
+def save_experiment_results(output_dir: str, metrics_per_epoch, groups, final_metrics, model, config, smiles_train):
     """Save all experiment results and metrics"""
     results_dir = Path(output_dir)
 
@@ -126,11 +126,21 @@ def save_experiment_results(output_dir: str, dataiq, groups, final_metrics, mode
     )
 
     # Save DataIQ results
+    avg_confidence = np.mean(np.array(metrics_per_epoch["confidence"]), axis=0)
+    avg_aleatoric = np.mean(np.array(metrics_per_epoch["aleatoric"]), axis=0)
+    avg_entropy = np.mean(np.array(metrics_per_epoch["entropy"]), axis=0)
+    avg_mi = np.mean(np.array(metrics_per_epoch["mi"]), axis=0)
+    avg_variability = np.mean(np.array(metrics_per_epoch["variability"]), axis=0)
+
     dataiq_results = pd.DataFrame(
         {
-            "group": groups,
-            "confidence": np.mean(dataiq.confidence, axis=0),
-            "aleatoric": np.mean(dataiq.aleatoric, axis=0),
+            "smiles": smiles_train,
+            "classification": groups,
+            "confidence": avg_confidence,
+            "aleatoric": avg_aleatoric,
+            "entropy": avg_entropy,
+            "mi": avg_mi,
+            "variability": avg_variability,
         }
     )
     dataiq_results.to_csv(results_dir / "dataiq_results.csv", index=False)
@@ -338,7 +348,7 @@ def main():
 
         # Train model and generate visualizations
         logger.info("Starting training...")
-        dataiq, groups, final_metrics = trainer.train(train_loader, val_loader, test_loader, config)
+        dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader, config)
 
         # Log final metrics
         logger.info("Training completed. Final metrics:")
@@ -353,7 +363,7 @@ def main():
 
         # Save all results
         logger.info("Saving experiment results...")
-        save_experiment_results(output_dir, dataiq, groups, final_metrics, model, config)
+        save_experiment_results(output_dir, metrics_per_epoch, groups, final_metrics, model, config, smiles_train)
 
         # Print summary of DataIQ groups
         group_counts = {group: np.sum(groups == group) for group in ["Easy", "Hard", "Ambiguous"]}

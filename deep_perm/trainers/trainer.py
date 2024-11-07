@@ -148,7 +148,7 @@ class PermeabilityTrainer:
         viz.plot_dataiq_scatter(avg_confidence, avg_aleatoric, groups)
         viz.plot_training_dynamics(self.metrics_per_epoch, groups)
 
-        return dataiq, groups, final_test_metrics
+        return dataiq, groups, final_test_metrics, self.metrics_per_epoch
 
     def train_epoch(self, train_loader):
         """Train the model for one epoch"""
