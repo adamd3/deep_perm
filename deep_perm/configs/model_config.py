@@ -14,6 +14,7 @@ class ModelConfig:
     use_early_stopping: bool = False  # Add this flag
     early_stopping_patience: int = 10
     permeability_threshold: float = 200
+    scheduler_type: str = "plateau"  # Add this line
 
     # DataIQ parameters
     conf_upper: float = 0.75

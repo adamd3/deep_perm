@@ -25,7 +25,16 @@ class PermeabilityTrainer:
 
         self.criterion = nn.NLLLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=1e-6)
+        # self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=1e-6)
+
+        if config.scheduler_type == "plateau":
+            self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer, mode="min", factor=0.7, patience=5, verbose=True, min_lr=1e-6
+            )
+        elif config.scheduler_type == "cosine":
+            self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=1e-6)
+        elif config.scheduler_type == "step":
+            self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.5)
 
         self.metrics_per_epoch = {
             "epoch": [],
@@ -44,7 +53,7 @@ class PermeabilityTrainer:
             "variability": [],
         }
 
-    def train(self, train_loader, val_loader, test_loader):
+    def train(self, train_loader, val_loader, test_loader, config):
         """
         Train the model
 
@@ -100,7 +109,11 @@ class PermeabilityTrainer:
                     self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
                     break
 
-            self.scheduler.step()
+            if config.scheduler_type == "plateau":
+                self.scheduler.step(val_metrics["loss"])
+            # For CosineAnnealing and StepLR
+            else:
+                self.scheduler.step()
 
         # Load best model for final evaluation
         checkpoint = torch.load(best_model_path)

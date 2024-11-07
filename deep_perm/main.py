@@ -268,6 +268,13 @@ def main():
     parser.add_argument("--importance", action="store_true", help="Run feature importance analysis")
     parser.add_argument("--early-stopping", action="store_true", help="Enable early stopping")
     parser.add_argument(
+        "--scheduler",
+        type=str,
+        default="plateau",
+        choices=["plateau", "cosine", "step"],
+        help="Learning rate scheduler type",
+    )
+    parser.add_argument(
         "--conf-upper", type=float, default=0.75, help="Upper confidence threshold for DataIQ classification"
     )
     parser.add_argument(
@@ -303,6 +310,7 @@ def main():
         config = ModelConfig(
             input_size=X.shape[1],
             use_early_stopping=args.early_stopping,
+            scheduler_type=args.scheduler,
             conf_upper=args.conf_upper,
             conf_lower=args.conf_lower,
             aleatoric_percentile=args.aleatoric_percentile,
