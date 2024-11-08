@@ -130,6 +130,7 @@ class PermeabilityTrainer:
         # DataIQ visualizations
         viz.plot_dataiq_scatter(avg_confidence, avg_aleatoric, groups, self.outcomes_df)
         viz.plot_training_dynamics(self.metrics_per_epoch, groups)
+        viz.plot_std_dev_relationships(avg_confidence, avg_aleatoric, self.outcomes_df)
 
         return dataiq, groups, final_test_metrics, self.metrics_per_epoch
 

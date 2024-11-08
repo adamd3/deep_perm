@@ -218,3 +218,59 @@ class VisualizationManager:
         plt.tight_layout()
         plt.savefig(os.path.join(self.output_dir, "training_dynamics_confidence.png"), dpi=300, bbox_inches="tight")
         plt.close()
+
+    def plot_std_dev_relationships(self, avg_confidence, avg_aleatoric, outcomes_df=None):
+        """Create scatter plots comparing cw_std_dev_norm with confidence and aleatoric uncertainty"""
+        if outcomes_df is None or "cw_std_dev_norm" not in outcomes_df.columns:
+            return
+
+        # Verify we have the same number of samples
+        if len(outcomes_df) != len(avg_confidence):
+            print(
+                f"Warning: Mismatch in number of samples. outcomes_df: {len(outcomes_df)}, metrics: {len(avg_confidence)}"
+            )
+            return
+
+        # Plot 1: cw_std_dev_norm vs confidence
+        plt.figure(figsize=(7, 5))
+        plt.scatter(outcomes_df["cw_std_dev_norm"], avg_confidence, alpha=0.6, s=50)
+
+        # Add correlation coefficient to plot
+        corr = np.corrcoef(outcomes_df["cw_std_dev_norm"], avg_confidence)[0, 1]
+        plt.text(
+            0.05,
+            0.95,
+            f"Correlation: {corr:.3f}",
+            transform=plt.gca().transAxes,
+            bbox={"facecolor": "white", "alpha": 0.8},
+        )
+
+        plt.xlabel("CW Std Dev Norm")
+        plt.ylabel("Confidence")
+        plt.title("Confidence vs CW Std Dev")
+        plt.tight_layout()
+
+        plt.savefig(os.path.join(self.output_dir, "confidence_vs_std_dev.png"), dpi=300, bbox_inches="tight")
+        plt.close()
+
+        # Plot 2: cw_std_dev_norm vs aleatoric uncertainty
+        plt.figure(figsize=(7, 5))
+        plt.scatter(outcomes_df["cw_std_dev_norm"], avg_aleatoric, alpha=0.6, s=50)
+
+        # Add correlation coefficient to plot
+        corr = np.corrcoef(outcomes_df["cw_std_dev_norm"], avg_aleatoric)[0, 1]
+        plt.text(
+            0.05,
+            0.95,
+            f"Correlation: {corr:.3f}",
+            transform=plt.gca().transAxes,
+            bbox={"facecolor": "white", "alpha": 0.8},
+        )
+
+        plt.xlabel("CW Std Dev Norm")
+        plt.ylabel("Aleatoric Uncertainty")
+        plt.title("Aleatoric Uncertainty vs CW Std Dev")
+        plt.tight_layout()
+
+        plt.savefig(os.path.join(self.output_dir, "aleatoric_vs_std_dev.png"), dpi=300, bbox_inches="tight")
+        plt.close()
