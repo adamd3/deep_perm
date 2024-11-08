@@ -129,7 +129,7 @@ class PermeabilityTrainer:
             # Scheduler steps...
             if self.config.scheduler_type == "plateau":
                 self.scheduler.step(val_metrics["loss"])
-            else:
+            elif self.config.scheduler_type != "onecycle":  # OneCycleLR scheduler steps after each batch
                 self.scheduler.step()
 
         # Load best model for final evaluation
@@ -183,6 +183,10 @@ class PermeabilityTrainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
 
             self.optimizer.step()
+
+            # Step OneCycleLR scheduler after each batch
+            if self.config.scheduler_type == "onecycle":
+                self.scheduler.step()
 
             total_loss += loss.item()
             _, predicted = torch.max(y_pred.data, 1)
