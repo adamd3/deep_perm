@@ -16,20 +16,25 @@ from utils.visualization import VisualizationManager
 class PermeabilityTrainer:
     """Trainer class for the permeability prediction model"""
 
-    def __init__(self, model, config, device, output_dir, outcomes_df=None, train_indices=None):
+    def __init__(self, model, config, device, output_dir, outcomes_df=None, train_indices=None, target_col=None):
         self.model = model
         self.config = config
         self.device = device
         self.output_dir = Path(output_dir)
         # Store only training set outcomes in correct order
-        if outcomes_df is not None and train_indices is not None:
+
+        if outcomes_df is not None and train_indices is not None and target_col is not None:
             self.outcomes_df = outcomes_df.iloc[train_indices].reset_index(drop=True)
+            train_labels = outcomes_df.iloc[train_indices][target_col].values
+            pos_weight = (train_labels == 0).sum() / (train_labels == 1).sum()
+            weights = torch.tensor([1.0, float(pos_weight)], dtype=torch.float32).to(device)
+            self.criterion = nn.NLLLoss(weight=weights)
         else:
+            self.criterion = nn.NLLLoss()
             self.outcomes_df = None
+
         self.logger = setup_logger(__name__)
 
-        weights = torch.tensor([1.0, (train_indices == 0).sum() / (train_indices == 1).sum()]).to(device)
-        self.criterion = nn.NLLLoss(weight=weights)
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
 
         if config.scheduler_type == "plateau":

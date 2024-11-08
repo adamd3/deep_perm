@@ -386,7 +386,15 @@ def main():
         # Create model and trainer - now passing train_indices
         logger.info("Initializing model and trainer...")
         model = PermeabilityNet(config).to(device)
-        trainer = PermeabilityTrainer(model, config, device, output_dir, outcomes_df, train_indices)
+        trainer = PermeabilityTrainer(
+            model,
+            config,
+            device,
+            output_dir,
+            outcomes_df,
+            train_indices,
+            target_col=args.target_col,  # Add this line
+        )
 
         # Train model and generate visualizations
         logger.info("Starting training...")
