@@ -50,7 +50,7 @@ def validate_splits(X_train, X_val, X_test, y_train, y_val, y_test):
         print(f"Feature indices: {problem_features}")
 
 
-def create_data_splits(X, y, smiles, test_size=0.1, val_size=0.15, random_state=42):
+def create_data_splits(X, y, smiles, test_size=0.15, val_size=0.15, random_state=42):
     """
     Split data into train, validation, and test sets.
 
@@ -58,8 +58,8 @@ def create_data_splits(X, y, smiles, test_size=0.1, val_size=0.15, random_state=
         X: Feature matrix
         y: Target vector
         smiles: SMILES strings
-        test_size: Proportion of dataset to include in test split (default 0.2 = 20%)
-        val_size: Proportion of remaining data for validation (default 0.1 = 10% of total)
+        test_size: Proportion of dataset to include in test split
+        val_size: Proportion of remaining data for validation
         random_state: Random seed for reproducibility
 
     Returns
