@@ -105,6 +105,13 @@ class VisualizationManager:
 
         # New scatter plot colored by cw_std_dev_norm if available
         if outcomes_df is not None and "cw_std_dev_norm" in outcomes_df.columns:
+            # Verify we have the same number of samples
+            if len(outcomes_df) != len(avg_confidence):
+                print(
+                    f"Warning: Mismatch in number of samples. outcomes_df: {len(outcomes_df)}, metrics: {len(avg_confidence)}"
+                )
+                return
+
             plt.figure(figsize=(7, 5))
             scatter = plt.scatter(
                 avg_aleatoric, avg_confidence, c=outcomes_df["cw_std_dev_norm"], cmap="viridis", alpha=0.6, s=50

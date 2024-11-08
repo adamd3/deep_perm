@@ -16,12 +16,16 @@ from utils.visualization import VisualizationManager
 class PermeabilityTrainer:
     """Trainer class for the permeability prediction model"""
 
-    def __init__(self, model, config, device, output_dir, outcomes_df=None):
+    def __init__(self, model, config, device, output_dir, outcomes_df=None, train_indices=None):
         self.model = model
         self.config = config
         self.device = device
         self.output_dir = Path(output_dir)
-        self.outcomes_df = outcomes_df
+        # Store only training set outcomes in correct order
+        if outcomes_df is not None and train_indices is not None:
+            self.outcomes_df = outcomes_df.iloc[train_indices].reset_index(drop=True)
+        else:
+            self.outcomes_df = None
         self.logger = setup_logger(__name__)
 
         self.criterion = nn.NLLLoss()

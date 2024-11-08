@@ -65,21 +65,27 @@ def create_data_splits(X, y, smiles, test_size=0.2, val_size=0.1, random_state=4
     -------
         Six arrays: X_train, X_val, X_test, y_train, y_val, y_test
     """
-    # First split: separate test set (20% of total data)
-    X_temp, X_test, y_temp, y_test, smiles_temp, smiles_test = train_test_split(
+    # First split: separate test set
+    X_temp, X_test, y_temp, y_test, smiles_temp, smiles_test, indices_temp, indices_test = train_test_split(
         X,
         y,
         smiles,
+        np.arange(len(X)),  # Add indices to split
         test_size=test_size,
         random_state=random_state,
-        stratify=y,  # Ensure balanced class distribution
+        stratify=y,
     )
 
-    # Second split: create validation set from remaining data
-    # val_size_adjusted = val_size / (1 - test_size) to get 10% of total data
+    # Second split: create validation set
     val_size_adjusted = val_size / (1 - test_size)
-    X_train, X_val, y_train, y_val, smiles_train, smiles_val = train_test_split(
-        X_temp, y_temp, smiles_temp, test_size=val_size_adjusted, random_state=random_state, stratify=y_temp
+    X_train, X_val, y_train, y_val, smiles_train, smiles_val, indices_train, indices_val = train_test_split(
+        X_temp,
+        y_temp,
+        smiles_temp,
+        indices_temp,  # Add indices to split
+        test_size=val_size_adjusted,
+        random_state=random_state,
+        stratify=y_temp,
     )
 
     # Print split sizes and proportions
@@ -105,7 +111,20 @@ def create_data_splits(X, y, smiles, test_size=0.2, val_size=0.1, random_state=4
     # print(f"Train-Test similarity: {similarity_metrics['train_test_similarity']:.3f}")
     # print(f"Val-Test similarity: {similarity_metrics['val_test_similarity']:.3f}")
 
-    return X_train, X_val, X_test, y_train, y_val, y_test, smiles_train, smiles_val, smiles_test
+    return (
+        X_train,
+        X_val,
+        X_test,
+        y_train,
+        y_val,
+        y_test,
+        smiles_train,
+        smiles_val,
+        smiles_test,
+        indices_train,
+        indices_val,
+        indices_test,
+    )
 
 
 def save_experiment_results(output_dir: str, metrics_per_epoch, groups, final_metrics, model, config, smiles_train):
@@ -315,7 +334,6 @@ def main():
         X, y, smiles, outcomes_df = preprocessor.prepare_data(
             pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t"), args.target_col
         )
-
         # Create config
         config = ModelConfig(
             input_size=X.shape[1],
@@ -329,8 +347,23 @@ def main():
 
         # Create train/val/test splits
         logger.info("Creating data splits...")
+
+        # Create train/val/test splits - now with indices
         splits = create_data_splits(X, y, smiles)
-        X_train, X_val, X_test, y_train, y_val, y_test, smiles_train, smiles_val, smiles_test = splits
+        (
+            X_train,
+            X_val,
+            X_test,
+            y_train,
+            y_val,
+            y_test,
+            smiles_train,
+            smiles_val,
+            smiles_test,
+            train_indices,
+            val_indices,
+            test_indices,
+        ) = splits
 
         # Create datasets and loaders
         train_dataset = PermeabilityDataset(X_train, y_train)
@@ -341,10 +374,10 @@ def main():
         val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
         test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
 
-        # Create model and trainer
+        # Create model and trainer - now passing train_indices
         logger.info("Initializing model and trainer...")
         model = PermeabilityNet(config).to(device)
-        trainer = PermeabilityTrainer(model, config, device, output_dir, outcomes_df)
+        trainer = PermeabilityTrainer(model, config, device, output_dir, outcomes_df, train_indices)
 
         # Train model and generate visualizations
         logger.info("Starting training...")
