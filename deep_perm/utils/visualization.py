@@ -85,8 +85,9 @@ class VisualizationManager:
         plt.legend()
         plt.grid(True, alpha=0.3)
 
-    def plot_dataiq_scatter(self, avg_confidence, avg_aleatoric, groups):
+    def plot_dataiq_scatter(self, avg_confidence, avg_aleatoric, groups, outcomes_df=None):
         """Create scatter plot of aleatoric uncertainty vs confidence"""
+        # Original scatter plot
         plt.figure(figsize=(7, 5))
 
         for group, color in zip(["Easy", "Hard", "Ambiguous"], ["green", "red", "blue"], strict=False):
@@ -102,8 +103,26 @@ class VisualizationManager:
         plt.savefig(os.path.join(self.output_dir, "uncertainty_confidence.png"), dpi=300, bbox_inches="tight")
         plt.close()
 
+        # New scatter plot colored by cw_std_dev_norm if available
+        if outcomes_df is not None and "cw_std_dev_norm" in outcomes_df.columns:
+            plt.figure(figsize=(7, 5))
+            scatter = plt.scatter(
+                avg_aleatoric, avg_confidence, c=outcomes_df["cw_std_dev_norm"], cmap="viridis", alpha=0.6, s=50
+            )
+            plt.colorbar(scatter, label="CW Std Dev Norm")
+            plt.xlabel("Aleatoric Uncertainty")
+            plt.ylabel("Confidence")
+            plt.title("DataIQ Classification (Colored by CW Std Dev)")
+            plt.tight_layout()
+
+            plt.savefig(
+                os.path.join(self.output_dir, "uncertainty_confidence_cw_std.png"), dpi=300, bbox_inches="tight"
+            )
+            plt.close()
+
     def plot_training_dynamics(self, metrics_per_epoch, groups):
         """Analyze and plot how examples from different groups behave during training"""
+        # Plot 1: Aleatoric uncertainty dynamics
         plt.figure(figsize=(10, 6))
         colors = {"Easy": "green", "Hard": "red", "Ambiguous": "blue"}
 
@@ -112,6 +131,7 @@ class VisualizationManager:
             if len(group_indices) == 0:
                 continue
 
+            # Plot aleatoric uncertainty
             group_values = []
             for epoch in range(len(metrics_per_epoch["aleatoric"])):
                 epoch_values = [metrics_per_epoch["aleatoric"][epoch][idx] for idx in group_indices]
@@ -148,5 +168,46 @@ class VisualizationManager:
         )
 
         plt.tight_layout()
-        plt.savefig(os.path.join(self.output_dir, "training_dynamics.png"), dpi=300, bbox_inches="tight")
+        plt.savefig(os.path.join(self.output_dir, "training_dynamics_aleatoric.png"), dpi=300, bbox_inches="tight")
+        plt.close()
+
+        # Plot 2: Confidence dynamics
+        plt.figure(figsize=(10, 6))
+
+        for group in ["Easy", "Hard", "Ambiguous"]:
+            group_indices = np.where(groups == group)[0]
+            if len(group_indices) == 0:
+                continue
+
+            # Plot confidence
+            group_values = []
+            for epoch in range(len(metrics_per_epoch["confidence"])):
+                epoch_values = [metrics_per_epoch["confidence"][epoch][idx] for idx in group_indices]
+                group_values.append(epoch_values)
+
+            group_values = np.array(group_values)
+            mean_values = np.mean(group_values, axis=1)
+            std_values = np.std(group_values, axis=1)
+
+            epochs = range(1, len(mean_values) + 1)
+            plt.plot(epochs, mean_values, color=colors[group], label=f"{group}", linewidth=2)
+            plt.fill_between(epochs, mean_values - std_values, mean_values + std_values, color=colors[group], alpha=0.2)
+
+        plt.title("Confidence During Training by Group")
+        plt.xlabel("Epoch")
+        plt.ylabel("Confidence")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        plt.text(
+            0.02,
+            0.98,
+            "\n".join(stats_text),
+            transform=plt.gca().transAxes,
+            verticalalignment="top",
+            bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.8},
+        )
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.output_dir, "training_dynamics_confidence.png"), dpi=300, bbox_inches="tight")
         plt.close()
