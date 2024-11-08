@@ -28,7 +28,8 @@ class PermeabilityTrainer:
             self.outcomes_df = None
         self.logger = setup_logger(__name__)
 
-        self.criterion = nn.NLLLoss()
+        weights = torch.tensor([1.0, (train_indices == 0).sum() / (train_indices == 1).sum()]).to(device)
+        self.criterion = nn.NLLLoss(weight=weights)
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
 
         if config.scheduler_type == "plateau":
