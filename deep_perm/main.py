@@ -50,7 +50,7 @@ def validate_splits(X_train, X_val, X_test, y_train, y_val, y_test):
         print(f"Feature indices: {problem_features}")
 
 
-def create_data_splits(X, y, smiles, test_size=0.2, val_size=0.15, random_state=42):
+def create_data_splits(X, y, smiles, test_size=0.15, val_size=0.15, random_state=42):
     """
     Split data into train, validation, and test sets.
 
