@@ -16,7 +16,17 @@ from utils.visualization import VisualizationManager
 class PermeabilityTrainer:
     """Trainer class for the permeability prediction model"""
 
-    def __init__(self, model, config, device, output_dir, outcomes_df=None, train_indices=None, target_col=None):
+    def __init__(
+        self,
+        model,
+        config,
+        device,
+        output_dir,
+        outcomes_df=None,
+        train_indices=None,
+        target_col=None,
+        train_loader=None,
+    ):
         self.model = model
         self.config = config
         self.device = device
@@ -48,6 +58,13 @@ class PermeabilityTrainer:
             self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=1e-6)
         elif config.scheduler_type == "step":
             self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=5, gamma=0.5)
+        elif config.scheduler_type == "onecycle":
+            self.scheduler = optim.lr_scheduler.OneCycleLR(
+                self.optimizer,
+                max_lr=config.learning_rate,
+                epochs=config.epochs,
+                steps_per_epoch=len(train_loader),
+            )
 
         self.metrics_per_epoch = {
             "epoch": [],

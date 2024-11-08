@@ -395,7 +395,8 @@ def main():
             output_dir,
             outcomes_df,
             train_indices,
-            target_col=args.target_col,  # Add this line
+            target_col=args.target_col,
+            train_loader=train_loader,
         )
 
         # Train model and generate visualizations
