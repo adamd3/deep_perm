@@ -309,7 +309,7 @@ def main():
         "--scheduler",
         type=str,
         default="plateau",
-        choices=["plateau", "cosine", "step"],
+        choices=["plateau", "cosine", "step", "onecycle"],
         help="Learning rate scheduler type",
     )
     parser.add_argument(
