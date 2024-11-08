@@ -321,6 +321,7 @@ def main():
     parser.add_argument(
         "--aleatoric-percentile", type=float, default=50, help="Percentile threshold for aleatoric uncertainty"
     )
+    parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
 
     args = parser.parse_args()
 
@@ -351,6 +352,7 @@ def main():
             conf_upper=args.conf_upper,
             conf_lower=args.conf_lower,
             aleatoric_percentile=args.aleatoric_percentile,
+            epochs=args.epochs,
         )
         logger.info(f"Created model config: {config}")
 
