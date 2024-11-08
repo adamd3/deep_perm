@@ -231,12 +231,25 @@ class VisualizationManager:
             )
             return
 
+        # Remove NaN values for correlation calculation and plotting
+        std_dev = outcomes_df["cw_std_dev_norm"].values
+        mask = ~np.isnan(std_dev)  # Create mask for non-NaN values
+
+        if not np.any(mask):
+            print("Warning: All values in cw_std_dev_norm are NaN")
+            return
+
+        # Filter out NaN values
+        std_dev_clean = std_dev[mask]
+        confidence_clean = avg_confidence[mask]
+        aleatoric_clean = avg_aleatoric[mask]
+
         # Plot 1: cw_std_dev_norm vs confidence
         plt.figure(figsize=(7, 5))
-        plt.scatter(outcomes_df["cw_std_dev_norm"], avg_confidence, alpha=0.6, s=50)
+        plt.scatter(std_dev_clean, confidence_clean, alpha=0.6, s=50)
 
         # Add correlation coefficient to plot
-        corr = np.corrcoef(outcomes_df["cw_std_dev_norm"], avg_confidence)[0, 1]
+        corr = np.corrcoef(std_dev_clean, confidence_clean)[0, 1]
         plt.text(
             0.05,
             0.95,
@@ -255,10 +268,10 @@ class VisualizationManager:
 
         # Plot 2: cw_std_dev_norm vs aleatoric uncertainty
         plt.figure(figsize=(7, 5))
-        plt.scatter(outcomes_df["cw_std_dev_norm"], avg_aleatoric, alpha=0.6, s=50)
+        plt.scatter(std_dev_clean, aleatoric_clean, alpha=0.6, s=50)
 
         # Add correlation coefficient to plot
-        corr = np.corrcoef(outcomes_df["cw_std_dev_norm"], avg_aleatoric)[0, 1]
+        corr = np.corrcoef(std_dev_clean, aleatoric_clean)[0, 1]
         plt.text(
             0.05,
             0.95,
