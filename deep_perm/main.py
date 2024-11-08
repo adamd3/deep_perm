@@ -312,7 +312,7 @@ def main():
         # Load and preprocess data
         logger.info("Loading and preprocessing data...")
         preprocessor = DataPreprocessor()
-        X, y, smiles = preprocessor.prepare_data(
+        X, y, smiles, outcomes_df = preprocessor.prepare_data(
             pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t"), args.target_col
         )
 
@@ -344,7 +344,7 @@ def main():
         # Create model and trainer
         logger.info("Initializing model and trainer...")
         model = PermeabilityNet(config).to(device)
-        trainer = PermeabilityTrainer(model, config, device, output_dir)
+        trainer = PermeabilityTrainer(model, config, device, output_dir, outcomes_df)
 
         # Train model and generate visualizations
         logger.info("Starting training...")

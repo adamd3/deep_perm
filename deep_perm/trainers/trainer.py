@@ -16,20 +16,20 @@ from utils.visualization import VisualizationManager
 class PermeabilityTrainer:
     """Trainer class for the permeability prediction model"""
 
-    def __init__(self, model, config, device, output_dir):
+    def __init__(self, model, config, device, output_dir, outcomes_df=None):
         self.model = model
         self.config = config
         self.device = device
         self.output_dir = Path(output_dir)
+        self.outcomes_df = outcomes_df
         self.logger = setup_logger(__name__)
 
         self.criterion = nn.NLLLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=config.learning_rate)
-        # self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=1e-6)
 
         if config.scheduler_type == "plateau":
             self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, mode="min", factor=0.7, patience=5, verbose=True, min_lr=1e-6
+                self.optimizer, mode="min", factor=0.5, patience=3, verbose=True, min_lr=1e-6
             )
         elif config.scheduler_type == "cosine":
             self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=config.epochs, eta_min=1e-6)
@@ -53,15 +53,8 @@ class PermeabilityTrainer:
             "variability": [],
         }
 
-    def train(self, train_loader, val_loader, test_loader, config):
-        """
-        Train the model
-
-        Args:
-            train_loader: DataLoader for training data
-            val_loader: DataLoader for validation data
-            test_loader: DataLoader for test data
-        """
+    def train(self, train_loader, val_loader, test_loader):
+        """Train the model"""
         best_val_loss = float("inf")
         patience_counter = 0
         best_model_path = self.output_dir / "best_model.pt"
@@ -79,16 +72,7 @@ class PermeabilityTrainer:
             # Update metrics
             update_metrics_per_epoch(self.metrics_per_epoch, epoch, train_loss, train_acc, val_metrics, dataiq)
 
-            # Logging
-            self.logger.info(
-                f"Epoch {epoch+1}/{self.config.epochs} - "
-                f"Train Loss: {train_loss:.4f}, "
-                f"Train Acc: {train_acc:.4f}, "
-                f"Val Loss: {val_metrics['loss']:.4f}, "
-                f"Val AUROC: {val_metrics['auroc']:.4f}"
-            )
-
-            # Early stopping
+            # Early stopping logic...
             if val_metrics["loss"] < best_val_loss:
                 best_val_loss = val_metrics["loss"]
                 patience_counter = 0
@@ -104,14 +88,13 @@ class PermeabilityTrainer:
             else:
                 patience_counter += 1
 
-            if self.config.use_early_stopping:
-                if patience_counter >= self.config.early_stopping_patience:
-                    self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
-                    break
+            if self.config.use_early_stopping and patience_counter >= self.config.early_stopping_patience:
+                self.logger.info(f"Early stopping triggered at epoch {epoch+1}")
+                break
 
-            if config.scheduler_type == "plateau":
+            # Scheduler steps...
+            if self.config.scheduler_type == "plateau":
                 self.scheduler.step(val_metrics["loss"])
-            # For CosineAnnealing and StepLR
             else:
                 self.scheduler.step()
 
@@ -120,11 +103,7 @@ class PermeabilityTrainer:
         self.model.load_state_dict(checkpoint["model_state_dict"])
 
         # Get final test metrics
-        self.logger.info("Evaluating on test set...")
         final_test_metrics = self.validate(test_loader)
-        self.logger.info("Test metrics:")
-        for metric_name, value in final_test_metrics.items():
-            self.logger.info(f"{metric_name}: {value:.4f}")
 
         # Load visualization manager
         viz = VisualizationManager(self.output_dir)
@@ -144,8 +123,8 @@ class PermeabilityTrainer:
             aleatoric_percentile=self.config.aleatoric_percentile,
         )
 
-        # Create DataIQ visualizations
-        viz.plot_dataiq_scatter(avg_confidence, avg_aleatoric, groups)
+        # DataIQ visualizations
+        viz.plot_dataiq_scatter(avg_confidence, avg_aleatoric, groups, self.outcomes_df)
         viz.plot_training_dynamics(self.metrics_per_epoch, groups)
 
         return dataiq, groups, final_test_metrics, self.metrics_per_epoch

@@ -15,8 +15,6 @@ class DataPreprocessor:
         if not isinstance(predictors_df, pd.DataFrame) or not isinstance(outcomes_df, pd.DataFrame):
             raise TypeError("Inputs must be pandas DataFrames")
 
-        # merged_df = pd.merge(predictors_df, outcomes_df, on="smiles", how="inner")
-
         # Convert column names to lowercase
         predictors_df.columns = predictors_df.columns.str.lower()
         outcomes_df.columns = outcomes_df.columns.str.lower()
@@ -33,14 +31,12 @@ class DataPreprocessor:
         smiles = merged_df["smiles"]
         target = merged_df[target_col]
 
-        # feature_cols = [col for col in predictors_df.columns if col != "smiles"]
         feature_cols = [col for col in predictors_df.columns if col != "smiles" and col != "name"]
         X = merged_df[feature_cols]
 
         print("\nData Summary:")
         print(f"Number of samples: {len(merged_df)}")
         print(f"Number of features: {len(feature_cols)}")
-        print("\nFeature names:", feature_cols)
         print("\nFeature types:")
         print(X.dtypes)
 
@@ -59,4 +55,4 @@ class DataPreprocessor:
         print(f"y: {y.shape}")
         print(f"Class distribution: {np.mean(y):.2%} positive")
 
-        return X_scaled.astype(np.float32), y.values.astype(np.float32), smiles.values
+        return X_scaled.astype(np.float32), y.values.astype(np.float32), smiles.values, outcomes_df
