@@ -6,8 +6,10 @@ class ModelConfig:
     """Model configuration class"""
 
     input_size: int
-    hidden_sizes = [2048, 1024, 512, 256, 128, 64]
-    dropout_rates: list[float] = None
+    # hidden_sizes = [2048, 1024, 512, 256, 128, 64]
+    hidden_sizes: list[int] = None
+    # dropout_rates: list[float] = None
+    dropout_rates = [0.2, 0.25, 0.3, 0.35, 0.4, 0.4]
     learning_rate: float = 1e-3
     batch_size: int = 32
     epochs: int = 20
@@ -33,15 +35,3 @@ class ModelConfig:
             ]
         if self.dropout_rates is None:
             self.dropout_rates = [0.3] * len(self.hidden_sizes)  # Uniform 0.3 dropout
-
-
-#     def __post_init__(self):
-#         if self.hidden_sizes is None:
-#             self.hidden_sizes = [
-#                 max(self.input_size * 2, 64),
-#                 max(self.input_size, 32),
-#                 max(self.input_size // 2, 16),
-#                 max(self.input_size // 4, 8),
-#             ]
-#         if self.dropout_rates is None:
-#             self.dropout_rates = [0.1, 0.2, 0.3, 0.3, 0.3]
