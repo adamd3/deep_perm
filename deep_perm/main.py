@@ -15,7 +15,6 @@ from models.permeability_net import PermeabilityNet
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from trainers.trainer import PermeabilityTrainer
-from utils.chemical_utils import analyze_chemical_similarity
 from utils.logger import setup_logger
 from utils.visualization import VisualizationManager
 
@@ -99,12 +98,12 @@ def create_data_splits(X, y, smiles, test_size=0.2, val_size=0.1, random_state=4
 
     validate_splits(X_train, X_val, X_test, y_train, y_val, y_test)
 
-    # Analyze chemical similarity if SMILES are provided
-    similarity_metrics = analyze_chemical_similarity(smiles_train, smiles_val, smiles_test)
-    print("\nChemical Similarity Analysis:")
-    print(f"Train-Val similarity: {similarity_metrics['train_val_similarity']:.3f}")
-    print(f"Train-Test similarity: {similarity_metrics['train_test_similarity']:.3f}")
-    print(f"Val-Test similarity: {similarity_metrics['val_test_similarity']:.3f}")
+    # # Analyze chemical similarity if SMILES are provided
+    # similarity_metrics = analyze_chemical_similarity(smiles_train, smiles_val, smiles_test)
+    # print("\nChemical Similarity Analysis:")
+    # print(f"Train-Val similarity: {similarity_metrics['train_val_similarity']:.3f}")
+    # print(f"Train-Test similarity: {similarity_metrics['train_test_similarity']:.3f}")
+    # print(f"Val-Test similarity: {similarity_metrics['val_test_similarity']:.3f}")
 
     return X_train, X_val, X_test, y_train, y_val, y_test, smiles_train, smiles_val, smiles_test
 
@@ -375,7 +374,11 @@ def main():
 
         if args.importance:
             # Get feature names (assuming they're in your predictors file)
-            feature_names = [col for col in pd.read_csv(args.predictors, sep="\t").columns if col not in ["Smiles"]]
+            feature_names = [
+                col
+                for col in pd.read_csv(args.predictors, sep="\t").columns
+                if col not in ["Smiles", "SMILES", "smiles", "Name", "name", "NAME"]
+            ]
 
             # Analyze feature importance
             logger.info("Analyzing feature importance based on ambiguity reduction...")

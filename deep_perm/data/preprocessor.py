@@ -15,6 +15,8 @@ class DataPreprocessor:
         if not isinstance(predictors_df, pd.DataFrame) or not isinstance(outcomes_df, pd.DataFrame):
             raise TypeError("Inputs must be pandas DataFrames")
 
+        # merged_df = pd.merge(predictors_df, outcomes_df, on="smiles", how="inner")
+
         # Convert column names to lowercase
         predictors_df.columns = predictors_df.columns.str.lower()
         outcomes_df.columns = outcomes_df.columns.str.lower()
