@@ -6,7 +6,7 @@ class ModelConfig:
     """Model configuration class"""
 
     input_size: int
-    hidden_sizes: list[int] = None
+    hidden_sizes = [2048, 1024, 512, 256, 128, 64]
     dropout_rates: list[float] = None
     learning_rate: float = 1e-3
     batch_size: int = 32
