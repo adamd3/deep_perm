@@ -348,7 +348,7 @@ def main():
 
         # Train model and generate visualizations
         logger.info("Starting training...")
-        dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader, config)
+        dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader)
 
         # Log final metrics
         logger.info("Training completed. Final metrics:")
