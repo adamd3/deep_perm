@@ -66,7 +66,11 @@ class PermeabilityTrainer:
         # Initialize DataIQ
         dataiq = DataIQ_Torch(X=train_loader.dataset.X.numpy(), y=train_loader.dataset.y.numpy(), sparse_labels=True)
 
+        self.logger.info(f"Starting training for {self.config.epochs} epochs")
+
         for epoch in range(self.config.epochs):
+            self.logger.info(f"Epoch {epoch+1}/{self.config.epochs}")
+
             train_loss, train_acc = self.train_epoch(train_loader)
             val_metrics = self.validate(val_loader)
 

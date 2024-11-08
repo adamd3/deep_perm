@@ -1,5 +1,6 @@
 import argparse
 import json
+import warnings
 from dataclasses import asdict
 from pathlib import Path
 
@@ -284,6 +285,14 @@ class FeatureImportanceAnalyzer:
         plt.tight_layout()
         plt.savefig(self.output_dir / "top_features_correlation.png")
         plt.close()
+
+
+warnings.filterwarnings(
+    "ignore",
+    message="Using a non-full backward hook when the forward contains multiple autograd Nodes is deprecated and will be removed in future versions. This hook will be missing some grad_input. Please use register_full_backward_hook to get the documented behavior.",
+    category=FutureWarning,
+    module="torch.nn.modules.module",
+)
 
 
 def main():
