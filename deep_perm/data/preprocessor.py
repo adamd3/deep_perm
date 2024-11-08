@@ -23,15 +23,14 @@ class DataPreprocessor:
 
         if "smiles" in predictors_df.columns and "smiles" in outcomes_df.columns:
             merged_df = pd.merge(predictors_df, outcomes_df, on="smiles", how="inner")
-            smiles = merged_df["smiles"]
             print("merging on smiles")
         elif "name" in predictors_df.columns and "name" in outcomes_df.columns:
             merged_df = pd.merge(predictors_df, outcomes_df, on="name", how="inner")
-            smiles = merged_df["name"]
             print("merging on name")
         else:
             raise ValueError("Neither 'smiles' nor 'name' columns are shared between the input files.")
 
+        smiles = merged_df["smiles"]
         target = merged_df[target_col]
 
         # feature_cols = [col for col in predictors_df.columns if col != "smiles"]
