@@ -17,6 +17,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from trainers.trainer import PermeabilityTrainer
 from utils.logger import setup_logger
+from utils.model_analyzer import ModelAnalyzer
 from utils.visualization import VisualizationManager
 
 
@@ -105,13 +106,6 @@ def create_data_splits(X, y, smiles, test_size=0.15, val_size=0.15, random_state
 
     validate_splits(X_train, X_val, X_test, y_train, y_val, y_test)
 
-    # # Analyze chemical similarity if SMILES are provided
-    # similarity_metrics = analyze_chemical_similarity(smiles_train, smiles_val, smiles_test)
-    # print("\nChemical Similarity Analysis:")
-    # print(f"Train-Val similarity: {similarity_metrics['train_val_similarity']:.3f}")
-    # print(f"Train-Test similarity: {similarity_metrics['train_test_similarity']:.3f}")
-    # print(f"Val-Test similarity: {similarity_metrics['val_test_similarity']:.3f}")
-
     return (
         X_train,
         X_val,
@@ -164,7 +158,6 @@ def save_experiment_results(output_dir: str, metrics_per_epoch, groups, final_me
     )
     dataiq_results.to_csv(results_dir / "dataiq_results.csv", index=False)
 
-    # Save group statistics
     group_stats = {
         group: {"count": int(np.sum(groups == group)), "percentage": float(np.mean(groups == group) * 100)}
         for group in ["Easy", "Hard", "Ambiguous"]
@@ -302,7 +295,8 @@ def main():
     parser.add_argument("--outcomes", type=str, required=True, help="Path to outcomes TSV file")
     parser.add_argument("--target-col", type=str, required=True, help="Target (outcome) variable column name")
     parser.add_argument("--output-dir", type=str, default="results", help="Directory to save results")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    # parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument("--base-seed", type=int, default=42, help="Base random seed for reproducibility")
     parser.add_argument("--importance", action="store_true", help="Run feature importance analysis")
     parser.add_argument("--early-stopping", action="store_true", help="Enable early stopping")
     parser.add_argument(
@@ -322,136 +316,173 @@ def main():
         "--aleatoric-percentile", type=float, default=50, help="Percentile threshold for aleatoric uncertainty"
     )
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
 
     args = parser.parse_args()
 
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    base_output_dir = Path(args.output_dir)
+    base_output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = setup_logger(__name__, output_dir / "training.log")
-    logger.info(f"Starting experiment with args: {args}")
+    analyzer = ModelAnalyzer(base_output_dir, args.n_runs)
 
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+    # torch.manual_seed(args.seed)
+    # np.random.seed(args.seed)
+
+    # output_dir = Path(args.output_dir)
+    # output_dir.mkdir(parents=True, exist_ok=True)
+
+    # logger = setup_logger(__name__, output_dir / "training.log")
+    # logger.info(f"Starting experiment with args: {args}")
+    # logger.info(f"Using device: {device}")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Using device: {device}")
 
-    try:
-        # Load and preprocess data
-        logger.info("Loading and preprocessing data...")
-        preprocessor = DataPreprocessor()
-        X, y, smiles, outcomes_df = preprocessor.prepare_data(
-            pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t"), args.target_col
-        )
-        # Create config
-        config = ModelConfig(
-            input_size=X.shape[1],
-            use_early_stopping=args.early_stopping,
-            scheduler_type=args.scheduler,
-            conf_upper=args.conf_upper,
-            conf_lower=args.conf_lower,
-            aleatoric_percentile=args.aleatoric_percentile,
-            epochs=args.epochs,
-        )
-        logger.info(f"Created model config: {config}")
+    logger = setup_logger(__name__, base_output_dir / "experiment.log")
+    logger.info(f"Starting experiment with {args.n_runs} runs using device: {device}")
 
-        # Create train/val/test splits
-        logger.info("Creating data splits...")
+    for run in range(args.n_runs):
+        # Set a different but deterministic seed for each run
+        run_seed = args.base_seed + run
+        torch.manual_seed(run_seed)
+        np.random.seed(run_seed)
 
-        # Create train/val/test splits - now with indices
-        splits = create_data_splits(X, y, smiles)
-        (
-            X_train,
-            X_val,
-            X_test,
-            y_train,
-            y_val,
-            y_test,
-            smiles_train,
-            smiles_val,
-            smiles_test,
-            train_indices,
-            val_indices,
-            test_indices,
-        ) = splits
+        output_dir = base_output_dir / f"run_{run}"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create datasets and loaders
-        train_dataset = PermeabilityDataset(X_train, y_train)
-        val_dataset = PermeabilityDataset(X_val, y_val)
-        test_dataset = PermeabilityDataset(X_test, y_test)
+        # logger = setup_logger(__name__, output_dir / "training.log")
+        # logger.info(f"Starting run {run+1}/{args.n_runs}")
 
-        train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
-        val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
-        test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
+        run_logger = setup_logger(f"{__name__}.run_{run}", output_dir / "training.log")
+        run_logger.info(f"Starting run {run+1}/{args.n_runs} with seed {run_seed}")
 
-        # Create model and trainer - now passing train_indices
-        logger.info("Initializing model and trainer...")
-        model = PermeabilityNet(config).to(device)
-        trainer = PermeabilityTrainer(
-            model,
-            config,
-            device,
-            output_dir,
-            outcomes_df,
-            train_indices,
-            target_col=args.target_col,
-            train_loader=train_loader,
-        )
+        try:
+            # Load and preprocess data
+            logger.info("Loading and preprocessing data...")
+            preprocessor = DataPreprocessor()
+            X, y, smiles, outcomes_df = preprocessor.prepare_data(
+                pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t"), args.target_col
+            )
+            # Create config
+            config = ModelConfig(
+                input_size=X.shape[1],
+                use_early_stopping=args.early_stopping,
+                scheduler_type=args.scheduler,
+                conf_upper=args.conf_upper,
+                conf_lower=args.conf_lower,
+                aleatoric_percentile=args.aleatoric_percentile,
+                epochs=args.epochs,
+            )
+            logger.info(f"Created model config: {config}")
 
-        # Train model and generate visualizations
-        logger.info("Starting training...")
-        dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader)
+            logger.info("Creating data splits...")
 
-        # Log final metrics
-        logger.info("Training completed. Final metrics:")
-        for metric_name, value in final_metrics.items():
-            logger.info(f"{metric_name}: {value:.4f}")
+            splits = create_data_splits(X, y, smiles, random_state=run_seed)
+            (
+                X_train,
+                X_val,
+                X_test,
+                y_train,
+                y_val,
+                y_test,
+                smiles_train,
+                smiles_val,
+                smiles_test,
+                train_indices,
+                val_indices,
+                test_indices,
+            ) = splits
 
-        # # Generate feature distribution plots
-        # logger.info("Generating feature distribution plots...")
-        # viz = VisualizationManager(output_dir)
-        # for feature_idx in range(X.shape[1]):
-        #     viz.plot_feature_distributions(X_train, X_val, X_test, feature_idx=feature_idx)
+            # Create datasets and loaders
+            train_dataset = PermeabilityDataset(X_train, y_train)
+            val_dataset = PermeabilityDataset(X_val, y_val)
+            test_dataset = PermeabilityDataset(X_test, y_test)
 
-        # Save all results
-        logger.info("Saving experiment results...")
-        save_experiment_results(output_dir, metrics_per_epoch, groups, final_metrics, model, config, smiles_train)
+            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+            val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
+            test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
 
-        # Print summary of DataIQ groups
-        group_counts = {group: np.sum(groups == group) for group in ["Easy", "Hard", "Ambiguous"]}
-        logger.info("\nDataIQ Group Summary:")
-        for group, count in group_counts.items():
-            percentage = (count / len(groups)) * 100
-            logger.info(f"{group}: {count} samples ({percentage:.1f}%)")
+            logger.info("Initializing model and trainer...")
+            model = PermeabilityNet(config).to(device)
+            trainer = PermeabilityTrainer(
+                model,
+                config,
+                device,
+                output_dir,
+                outcomes_df,
+                train_indices,
+                target_col=args.target_col,
+                train_loader=train_loader,
+            )
 
-        if args.importance:
-            # Get feature names (assuming they're in your predictors file)
-            feature_names = [
-                col
-                for col in pd.read_csv(args.predictors, sep="\t").columns
-                if col not in ["Smiles", "SMILES", "smiles", "Name", "name", "NAME"]
-            ]
+            logger.info("Starting training...")
+            dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader)
 
-            # Analyze feature importance
-            logger.info("Analyzing feature importance based on ambiguity reduction...")
-            analyzer = FeatureImportanceAnalyzer(output_dir)
-            importance_results = analyzer.analyze_feature_importance(X, y, smiles, feature_names, config, device)
+            # Log final metrics
+            logger.info("Training completed. Final metrics:")
+            for metric_name, value in final_metrics.items():
+                logger.info(f"{metric_name}: {value:.4f}")
 
-            # Log top features
-            logger.info("\nTop 10 features for reducing ambiguity:")
-            for _, row in importance_results.head(10).iterrows():
-                logger.info(
-                    f"{row['feature_name']}: "
-                    f"{row['ambiguity_reduction']:.2f}% reduction "
-                    f"(from {row['baseline_ambiguity']:.1f}% to {row['feature_ambiguity']:.1f}%)"
-                )
+            # # Generate feature distribution plots
+            # logger.info("Generating feature distribution plots...")
+            # viz = VisualizationManager(output_dir)
+            # for feature_idx in range(X.shape[1]):
+            #     viz.plot_feature_distributions(X_train, X_val, X_test, feature_idx=feature_idx)
 
-    except Exception:
-        logger.exception("An error occurred during training:")
-        raise
+            # Save all results
+            logger.info("Saving experiment results...")
+            save_experiment_results(output_dir, metrics_per_epoch, groups, final_metrics, model, config, smiles_train)
 
-    logger.info(f"Experiment completed. Results saved to: {output_dir}")
+            analyzer.collect_run_results(run)
+
+            # Print summary of DataIQ groups
+            group_counts = {group: np.sum(groups == group) for group in ["Easy", "Hard", "Ambiguous"]}
+            logger.info("\nDataIQ Group Summary:")
+            for group, count in group_counts.items():
+                percentage = (count / len(groups)) * 100
+                logger.info(f"{group}: {count} samples ({percentage:.1f}%)")
+
+            if args.importance:
+                # Get feature names (assuming they're in your predictors file)
+                feature_names = [
+                    col
+                    for col in pd.read_csv(args.predictors, sep="\t").columns
+                    if col not in ["Smiles", "SMILES", "smiles", "Name", "name", "NAME"]
+                ]
+
+                # Analyze feature importance
+                logger.info("Analyzing feature importance based on ambiguity reduction...")
+                analyzer = FeatureImportanceAnalyzer(output_dir)
+                importance_results = analyzer.analyze_feature_importance(X, y, smiles, feature_names, config, device)
+
+                # Log top features
+                logger.info("\nTop 10 features for reducing ambiguity:")
+                for _, row in importance_results.head(10).iterrows():
+                    logger.info(
+                        f"{row['feature_name']}: "
+                        f"{row['ambiguity_reduction']:.2f}% reduction "
+                        f"(from {row['baseline_ambiguity']:.1f}% to {row['feature_ambiguity']:.1f}%)"
+                    )
+
+        except Exception:
+            logger.exception(f"An error occurred during run {run}:")
+            continue
+
+    # Analyze and visualize results
+    logger.info("All runs completed. Analyzing results...")
+    analysis_dir = base_output_dir / "analysis"
+    analyzer.plot_results(analysis_dir)
+
+    # Print summary statistics
+    results = analyzer.analyze_results()
+    logger.info("\nSummary of results across runs:")
+    logger.info(
+        f"Mean accuracy: {results['metrics']['accuracy']['mean']:.3f} ± {results['metrics']['accuracy']['std']:.3f}"
+    )
+    logger.info(f"Mean AUROC: {results['metrics']['auroc']['mean']:.3f} ± {results['metrics']['auroc']['std']:.3f}")
+    logger.info(f"Mean AUPRC: {results['metrics']['auprc']['mean']:.3f} ± {results['metrics']['auprc']['std']:.3f}")
+    logger.info(f"Mean F1: {results['metrics']['f1']['mean']:.3f} ± {results['metrics']['f1']['std']:.3f}")
+
+    logger.info(f"Experiment completed. Results saved to: {base_output_dir}")
 
 
 if __name__ == "__main__":
