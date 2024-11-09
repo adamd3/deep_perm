@@ -79,6 +79,119 @@ class ModelAnalyzer:
 
         return stats
 
+    def _plot_metric_stability(self, output_dir: Path) -> None:
+        """Plot stability of DataIQ metrics across runs for individual examples"""
+        metrics = ["confidence", "aleatoric", "entropy", "mi", "variability"]
+
+        # First, align examples across runs using SMILES as identifier
+        aligned_metrics = {}
+        for metric in metrics:
+            # Create matrix where rows are examples and columns are runs
+            metric_values = []
+            for run_idx, run_df in enumerate(self.dataiq_metrics_per_run):
+                values = run_df.set_index("smiles")[metric]
+                values.name = f"run_{run_idx}"  # Name the series for clear column names
+                metric_values.append(values)
+            metric_matrix = pd.concat(metric_values, axis=1)
+            aligned_metrics[metric] = metric_matrix
+
+            # Save aligned metrics for this metric
+            metric_matrix.to_csv(output_dir / f"{metric}_aligned.tsv", sep="\t")
+
+            # Also save summary statistics (mean and std) for each example
+            summary_df = pd.DataFrame(
+                {
+                    "mean": metric_matrix.mean(axis=1),
+                    "std": metric_matrix.std(axis=1),
+                    "min": metric_matrix.min(axis=1),
+                    "max": metric_matrix.max(axis=1),
+                    "median": metric_matrix.median(axis=1),
+                }
+            )
+            summary_df.index.name = "smiles"
+            summary_df.to_csv(output_dir / f"{metric}_summary.tsv", sep="\t")
+
+        # 1. Plot standard deviation distribution for each metric
+        plt.figure(figsize=(10, 6))
+        std_data = []
+        for metric in metrics:
+            std_values = aligned_metrics[metric].std(axis=1)
+            std_data.append({"Metric": metric, "Std Dev": std_values})
+        std_df = pd.concat([pd.DataFrame(d) for d in std_data])
+
+        sns.violinplot(data=std_df, x="Metric", y="Std Dev")
+        plt.title("Distribution of Per-Example Metric Stability Across Runs")
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.savefig(output_dir / "metric_stability_distribution.png")
+        plt.close()
+
+        # 2. Create stability heatmap for most variable examples
+        plt.figure(figsize=(12, 8))
+        all_stds = pd.DataFrame({metric: aligned_metrics[metric].std(axis=1) for metric in metrics})
+
+        # Find top 50 most variable examples across all metrics
+        top_variable = all_stds.mean(axis=1).nlargest(50).index
+
+        # Create heatmap data
+        heatmap_data = pd.DataFrame()
+        for metric in metrics:
+            heatmap_data[f"{metric}_std"] = all_stds.loc[top_variable, metric]
+
+        sns.heatmap(
+            heatmap_data.T, cmap="YlOrRd", xticklabels=False, yticklabels=True, cbar_kws={"label": "Standard Deviation"}
+        )
+        plt.title("Stability Heatmap for Most Variable Examples")
+        plt.tight_layout()
+        plt.savefig(output_dir / "metric_stability_heatmap.png")
+        plt.close()
+
+        # 3. Plot metric consistency scatter
+        fig, axes = plt.subplots(len(metrics), 1, figsize=(10, 4 * len(metrics)))
+        for idx, metric in enumerate(metrics):
+            metric_values = aligned_metrics[metric]
+            mean_values = metric_values.mean(axis=1)
+            std_values = metric_values.std(axis=1)
+
+            axes[idx].scatter(mean_values, std_values, alpha=0.3, s=20)
+            axes[idx].set_xlabel(f"Mean {metric}")
+            axes[idx].set_ylabel(f"Std Dev {metric}")
+            axes[idx].set_title(f"{metric} Consistency")
+
+            # Add trend line
+            z = np.polyfit(mean_values, std_values, 1)
+            p = np.poly1d(z)
+            axes[idx].plot(mean_values, p(mean_values), "r--", alpha=0.8)
+
+            # Calculate and display correlation
+            corr = np.corrcoef(mean_values, std_values)[0, 1]
+            axes[idx].text(
+                0.05,
+                0.95,
+                f"Correlation: {corr:.3f}",
+                transform=axes[idx].transAxes,
+                bbox={"facecolor": "white", "alpha": 0.8},
+            )
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "metric_consistency_scatter.png")
+        plt.close()
+
+        # 4. Save stability statistics
+        stability_stats = {
+            metric: {
+                "mean_std": float(all_stds[metric].mean()),
+                "median_std": float(all_stds[metric].median()),
+                "max_std": float(all_stds[metric].max()),
+                "min_std": float(all_stds[metric].min()),
+                "percent_stable": float((all_stds[metric] < all_stds[metric].median()).mean() * 100),
+            }
+            for metric in metrics
+        }
+
+        with open(output_dir / "stability_stats.json", "w") as f:
+            json.dump(stability_stats, f, indent=4)
+
     def plot_results(self, output_dir: str) -> None:
         """Generate visualizations of results"""
         output_dir = Path(output_dir)
@@ -88,6 +201,7 @@ class ModelAnalyzer:
         self._plot_group_distributions(output_dir)
         self._plot_uncertainty_correlations(output_dir)
         self._plot_uncertainty_by_group(output_dir)
+        self._plot_metric_stability(output_dir)
 
         # Save summary statistics
         summary_stats = self.analyze_results()
