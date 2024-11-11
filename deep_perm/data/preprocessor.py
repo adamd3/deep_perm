@@ -34,6 +34,14 @@ class DataPreprocessor:
         feature_cols = [col for col in predictors_df.columns if col != "smiles" and col != "name"]
         X = merged_df[feature_cols]
 
+        # check for duplicated columns
+        duplicated_cols = X.columns[X.columns.duplicated()]
+        if len(duplicated_cols) > 0:
+            print(f"Duplicate columns found: {duplicated_cols}")
+
+            # drop duplicated columns
+            X = X.loc[:, ~X.columns.duplicated()]
+
         print("\nData Summary:")
         print(f"Number of samples: {len(merged_df)}")
         print(f"Number of features: {len(feature_cols)}")

@@ -397,7 +397,7 @@ def main():
             val_dataset = PermeabilityDataset(X_val, y_val)
             test_dataset = PermeabilityDataset(X_test, y_test)
 
-            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False)
             val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
             test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
 
