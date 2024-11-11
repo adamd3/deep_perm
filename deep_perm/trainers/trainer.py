@@ -36,10 +36,21 @@ class PermeabilityTrainer:
         if outcomes_df is not None and train_indices is not None and target_col is not None:
             self.outcomes_df = outcomes_df.iloc[train_indices].reset_index(drop=True)
             train_labels = outcomes_df.iloc[train_indices][target_col].values
+            print(train_labels)
             neg_count = (train_labels == 0).sum()
             pos_count = (train_labels == 1).sum()
             pos_weight = np.sqrt(neg_count / pos_count)  # Square root to dampen the weight
-            pos_weight = min(pos_weight, 10.0)  # Cap max
+            # # Safe weight calculation
+            # if pos_count == 0:
+            #     logger.warning("No positive examples in training set! Using default weight of 1.0")
+            #     pos_weight = 1.0
+            # elif neg_count == 0:
+            #     logger.warning("No negative examples in training set! Using default weight of 1.0")
+            #     pos_weight = 1.0
+            # else:
+            #     pos_weight = np.sqrt(neg_count / pos_count)
+            #     logger.info(f"Calculated positive class weight: {pos_weight}")
+            pos_weight = min(float(pos_weight), 10.0)  # Cap max
             weights = torch.tensor([1.0, float(pos_weight)], dtype=torch.float32).to(device)
             self.criterion = nn.NLLLoss(weight=weights)
         else:
