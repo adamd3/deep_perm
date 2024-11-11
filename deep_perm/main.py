@@ -376,9 +376,9 @@ def main():
                 scheduler_type=args.scheduler,
                 # conf_upper=args.conf_upper,
                 # conf_lower=args.conf_lower,
+                # aleatoric_percentile=args.aleatoric_percentile,
                 dips_xthresh=args.dips_xthresh,
                 dips_ythresh=args.dips_ythresh,
-                aleatoric_percentile=args.aleatoric_percentile,
                 epochs=args.epochs,
             )
             logger.info(f"Created model config: {config}")
