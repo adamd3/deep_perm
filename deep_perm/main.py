@@ -306,15 +306,22 @@ def main():
         choices=["plateau", "cosine", "step", "onecycle"],
         help="Learning rate scheduler type",
     )
+    # parser.add_argument(
+    #     "--conf-upper", type=float, default=0.75, help="Upper confidence threshold for DataIQ classification"
+    # )
+    # parser.add_argument(
+    #     "--conf-lower", type=float, default=0.25, help="Lower confidence threshold for DataIQ classification"
+    # )
+    # parser.add_argument(
+    #     "--aleatoric-percentile", type=float, default=50, help="Percentile threshold for aleatoric uncertainty"
+    # )
     parser.add_argument(
-        "--conf-upper", type=float, default=0.75, help="Upper confidence threshold for DataIQ classification"
+        "--dips-xthresh",
+        type=float,
+        default=0,
+        help="X-threshold for DataIQ classification. Default (0) = choose automatically",
     )
-    parser.add_argument(
-        "--conf-lower", type=float, default=0.25, help="Lower confidence threshold for DataIQ classification"
-    )
-    parser.add_argument(
-        "--aleatoric-percentile", type=float, default=50, help="Percentile threshold for aleatoric uncertainty"
-    )
+    parser.add_argument("--dips-ythresh", type=float, default=0.2, help="Y-threshold for DataIQ classification")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
 
@@ -367,8 +374,10 @@ def main():
                 input_size=X.shape[1],
                 use_early_stopping=args.early_stopping,
                 scheduler_type=args.scheduler,
-                conf_upper=args.conf_upper,
-                conf_lower=args.conf_lower,
+                # conf_upper=args.conf_upper,
+                # conf_lower=args.conf_lower,
+                dips_xthresh=args.dips_xthresh,
+                dips_ythresh=args.dips_ythresh,
                 aleatoric_percentile=args.aleatoric_percentile,
                 epochs=args.epochs,
             )

@@ -19,9 +19,13 @@ class ModelConfig:
     scheduler_type: str = "plateau"
 
     # DataIQ parameters
-    conf_upper: float = 0.75
-    conf_lower: float = 0.25
-    aleatoric_percentile: float = 50
+
+    # conf_upper: float = 0.75
+    # conf_lower: float = 0.25
+    # aleatoric_percentile: float = 50
+
+    dips_xthresh: float = 0.15
+    dips_ythresh: float = 0.2
 
     def __post_init__(self):
         if self.hidden_sizes is None:

@@ -146,15 +146,24 @@ class PermeabilityTrainer:
         viz.plot_metrics(self.metrics_per_epoch, final_test_metrics)
 
         # DataIQ analysis
+        aleatoric_vals = np.array(self.metrics_per_epoch["aleatoric"])
         avg_confidence = np.mean(np.array(self.metrics_per_epoch["confidence"]), axis=0)
-        avg_aleatoric = np.mean(np.array(self.metrics_per_epoch["aleatoric"]), axis=0)
+        avg_aleatoric = np.mean(aleatoric_vals, axis=0)
+
+        # dips_xthresh = 0.75 * (np.max(aleatoric_vals) - np.min(aleatoric_vals))
+        # dips_ythresh = 0.2
+
+        # if dips_xthresh is 0, choose 75% of the range of aleatoric uncertainty
+        if self.config.dips_xthresh == 0:
+            dips_xthresh = 0.75 * (np.max(aleatoric_vals) - np.min(aleatoric_vals))
+        else:
+            dips_xthresh = self.config.dips_xthresh
 
         groups = classify_examples(
             avg_confidence,
             avg_aleatoric,
-            conf_upper=self.config.conf_upper,
-            conf_lower=self.config.conf_lower,
-            aleatoric_percentile=self.config.aleatoric_percentile,
+            dips_xthresh=dips_xthresh,
+            dips_ythresh=self.config.dips_ythresh,
         )
 
         # DataIQ visualizations
