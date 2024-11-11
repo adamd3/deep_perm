@@ -160,6 +160,9 @@ class PermeabilityTrainer:
         else:
             dips_xthresh = self.config.dips_xthresh
 
+        self.logger.info(f"Using dips_xthresh: {dips_xthresh}")
+        self.logger.info(f"Using dips_ythresh: {self.config.dips_ythresh}")
+
         groups = classify_examples(
             avg_confidence,
             avg_aleatoric,
