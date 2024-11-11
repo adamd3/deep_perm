@@ -31,6 +31,10 @@ class DataPreprocessor:
         smiles = merged_df["smiles"]
         target = merged_df[target_col]
 
+        # replace target_col values with binary values
+        # based on threshold
+        outcomes_df[target_col] = (outcomes_df[target_col] >= self.threshold).astype(int)
+
         feature_cols = [col for col in predictors_df.columns if col != "smiles" and col != "name"]
         X = merged_df[feature_cols]
 
