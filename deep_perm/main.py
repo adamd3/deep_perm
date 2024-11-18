@@ -325,6 +325,7 @@ def main():
     parser.add_argument("--dips-ythresh", type=float, default=0.2, help="Y-threshold for DataIQ classification")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
+    parser.add_argument("--batch-size", type=int, default=128, help="Batch size for training")
     parser.add_argument("--balanced-sampling", action="store_true", help="Use balanced class sampling for training")
 
     args = parser.parse_args()
@@ -382,6 +383,7 @@ def main():
                 dips_xthresh=args.dips_xthresh,
                 dips_ythresh=args.dips_ythresh,
                 epochs=args.epochs,
+                batch_size=args.batch_size,
             )
             logger.info(f"Created model config: {config}")
 
