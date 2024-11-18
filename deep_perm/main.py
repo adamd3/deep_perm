@@ -10,7 +10,7 @@ import pandas as pd
 import seaborn as sns
 import torch
 from configs.model_config import ModelConfig
-from data.dataset import PermeabilityDataset
+from data.dataset import PermeabilityDataset, create_balanced_loader
 from data.preprocessor import DataPreprocessor
 from models.permeability_net import PermeabilityNet
 from sklearn.model_selection import train_test_split
@@ -325,6 +325,7 @@ def main():
     parser.add_argument("--dips-ythresh", type=float, default=0.2, help="Y-threshold for DataIQ classification")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
+    parser.add_argument("--balanced-sampling", action="store_true", help="Use balanced class sampling for training")
 
     args = parser.parse_args()
 
@@ -407,7 +408,12 @@ def main():
             val_dataset = PermeabilityDataset(X_val, y_val)
             test_dataset = PermeabilityDataset(X_test, y_test)
 
-            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+            # train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+            if args.balanced_sampling:
+                train_loader = create_balanced_loader(train_dataset, config.batch_size)
+            else:
+                train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+
             val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
             test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
 
