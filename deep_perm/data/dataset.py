@@ -18,8 +18,14 @@ class PermeabilityDataset(Dataset):
 
 
 def create_balanced_loader(dataset, batch_size):
-    """Create a DataLoader with balanced class distribution"""
-    labels = dataset.y.astype(int)  # Convert to integers
+    """Create a DataLoader with balanced class weights"""
+    # Convert tensor to numpy for counting if necessary
+    if torch.is_tensor(dataset.y):
+        labels = dataset.y.numpy()
+    else:
+        labels = dataset.y
+
+    labels = labels.astype(int)  # Convert to integers
     class_counts = np.bincount(labels)
     weights = 1.0 / class_counts[labels]
 
