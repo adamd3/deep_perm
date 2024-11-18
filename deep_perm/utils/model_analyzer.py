@@ -72,7 +72,7 @@ class ModelAnalyzer:
 
     def _analyze_uncertainty_metrics(self) -> dict:
         """Analyze uncertainty metrics across runs"""
-        metrics = ["confidence", "aleatoric", "entropy", "mi", "variability"]
+        metrics = ["confidence", "aleatoric", "entropy", "variability"]
         stats = {}
 
         for metric in metrics:
@@ -200,11 +200,22 @@ class ModelAnalyzer:
             json.dump(stability_stats, f, indent=4)
 
     def plot_results(self, output_dir: str) -> None:
-        """Generate visualizations of results"""
+        """Plot and save all analysis results"""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Plot validation metrics across runs with error bars
+        self._plot_performance_metrics(output_dir)
+        self._plot_group_distributions(output_dir)
+        self._plot_uncertainty_correlations(output_dir)
+        self._plot_uncertainty_by_group(output_dir)
+        self._plot_metric_stability(output_dir)
+
+        summary_stats = self.analyze_results()
+        with open(output_dir / "summary_stats.json", "w") as f:
+            json.dump(summary_stats, f, indent=4, default=str)
+
+    def _plot_performance_metrics(self, output_dir: Path) -> None:
+        """Plot performance metrics across runs"""
         metrics_df = pd.DataFrame(self.metrics_per_run)
         key_metrics = ["accuracy", "auroc", "auprc", "f1"]
 
@@ -231,30 +242,6 @@ class ModelAnalyzer:
         plt.savefig(output_dir / "metrics_across_runs.png")
         plt.close()
 
-        self._plot_performance_metrics(output_dir)
-        self._plot_group_distributions(output_dir)
-        self._plot_uncertainty_correlations(output_dir)
-        self._plot_uncertainty_by_group(output_dir)
-        self._plot_metric_stability(output_dir)
-
-        # Save summary statistics
-        summary_stats = self.analyze_results()
-        with open(output_dir / "summary_stats.json", "w") as f:
-            json.dump(summary_stats, f, indent=4, default=str)
-
-    def _plot_performance_metrics(self, output_dir: Path) -> None:
-        """Plot performance metrics across runs"""
-        metrics_df = pd.DataFrame(self.metrics_per_run)
-
-        plt.figure(figsize=(10, 6))
-        sns.boxplot(data=metrics_df[["accuracy", "auroc", "auprc", "f1"]])
-        plt.title("Model Performance Metrics Across Runs")
-        plt.ylabel("Score")
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.savefig(output_dir / "performance_metrics.png")
-        plt.close()
-
     def _plot_group_distributions(self, output_dir: Path) -> None:
         """Plot distribution of groups across runs"""
         group_data = []
@@ -277,7 +264,7 @@ class ModelAnalyzer:
         """Plot correlation heatmap of uncertainty metrics"""
         # Combine all runs
         all_metrics = pd.concat(self.dataiq_metrics_per_run)
-        metrics = ["confidence", "aleatoric", "entropy", "mi", "variability"]
+        metrics = ["confidence", "aleatoric", "entropy", "variability"]
 
         correlation_matrix = all_metrics[metrics].corr()
 
@@ -291,7 +278,7 @@ class ModelAnalyzer:
     def _plot_uncertainty_by_group(self, output_dir: Path) -> None:
         """Plot distribution of uncertainty metrics for each group"""
         all_metrics = pd.concat(self.dataiq_metrics_per_run)
-        metrics = ["confidence", "aleatoric", "entropy", "mi", "variability"]
+        metrics = ["confidence", "aleatoric", "entropy", "variability"]
 
         fig, axes = plt.subplots(2, 3, figsize=(15, 10))
         axes = axes.flatten()
