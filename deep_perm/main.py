@@ -166,6 +166,7 @@ def save_experiment_results(output_dir: str, metrics_per_epoch, groups, final_me
         json.dump(group_stats, f, indent=4)
 
 
+# TODO: move this to the model_analyzer script
 class FeatureImportanceAnalyzer:
     """Analyze feature importance based on ambiguity reduction"""
 
@@ -460,8 +461,10 @@ def main():
 
                 # Analyze feature importance
                 logger.info("Analyzing feature importance based on ambiguity reduction...")
-                analyzer = FeatureImportanceAnalyzer(output_dir)
-                importance_results = analyzer.analyze_feature_importance(X, y, smiles, feature_names, config, device)
+                importance_analyzer = FeatureImportanceAnalyzer(output_dir)
+                importance_results = importance_analyzer.analyze_feature_importance(
+                    X, y, smiles, feature_names, config, device
+                )
 
                 # Log top features
                 logger.info("\nTop 10 features for reducing ambiguity:")
