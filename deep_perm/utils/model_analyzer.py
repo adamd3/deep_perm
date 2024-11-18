@@ -31,10 +31,9 @@ class ModelAnalyzer:
 
     def analyze_results(self) -> dict:
         """Analyze results across all runs"""
-        # Convert metrics to DataFrame
         metrics_df = pd.DataFrame(self.metrics_per_run)
 
-        # Calculate aggregate statistics
+        # Calculate summary statistics
         summary_stats = {
             "metrics": {
                 col: {
@@ -42,12 +41,20 @@ class ModelAnalyzer:
                     "std": metrics_df[col].std(),
                     "min": metrics_df[col].min(),
                     "max": metrics_df[col].max(),
+                    "median": metrics_df[col].median(),
                 }
                 for col in metrics_df.columns
-            },
-            "group_distributions": self._analyze_group_distributions(),
-            "uncertainty_stats": self._analyze_uncertainty_metrics(),
+            }
         }
+
+        # Save metrics table
+        metrics_summary = pd.DataFrame.from_dict(
+            {col: summary_stats["metrics"][col] for col in metrics_df.columns}, orient="index"
+        )
+        metrics_summary.round(4).to_csv(self.base_output_dir / "metrics_summary.csv")
+
+        # Save per-run metrics
+        metrics_df.round(4).to_csv(self.base_output_dir / "metrics_per_run.csv")
 
         return summary_stats
 
@@ -81,7 +88,7 @@ class ModelAnalyzer:
 
     def _plot_metric_stability(self, output_dir: Path) -> None:
         """Plot stability of DataIQ metrics across runs for individual examples"""
-        metrics = ["confidence", "aleatoric", "entropy", "mi", "variability"]
+        metrics = ["confidence", "aleatoric", "entropy", "variability"]
 
         # First, align examples across runs using SMILES as identifier
         aligned_metrics = {}
@@ -196,6 +203,33 @@ class ModelAnalyzer:
         """Generate visualizations of results"""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Plot validation metrics across runs with error bars
+        metrics_df = pd.DataFrame(self.metrics_per_run)
+        key_metrics = ["accuracy", "auroc", "auprc", "f1"]
+
+        plt.figure(figsize=(12, 6))
+
+        # Create box plot
+        plt.subplot(1, 2, 1)
+        sns.boxplot(data=metrics_df[key_metrics])
+        plt.title("Distribution of Metrics Across Runs")
+        plt.ylabel("Score")
+        plt.xticks(rotation=45)
+
+        # Create run trajectory plot
+        plt.subplot(1, 2, 2)
+        for metric in key_metrics:
+            plt.plot(range(1, len(metrics_df) + 1), metrics_df[metric], marker="o", label=metric)
+        plt.xlabel("Run")
+        plt.ylabel("Score")
+        plt.title("Metrics Trajectory Across Runs")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        plt.savefig(output_dir / "metrics_across_runs.png")
+        plt.close()
 
         self._plot_performance_metrics(output_dir)
         self._plot_group_distributions(output_dir)
