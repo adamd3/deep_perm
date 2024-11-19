@@ -8,15 +8,13 @@ from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
-from sklearn.preprocessing import StandardScaler
 
 
 class ClassSeparabilityAnalyzer:
-    """Analyzes separability of classes in feature space using multiple methods."""
+    """Class to analyze separability of classes in a dataset."""
 
     def __init__(self, features_df, y):
-        """
-        Initialize analyzer with feature DataFrame and labels.
+        """Initialize analyzer with feature DataFrame and labels.
 
         Args:
             features_df: DataFrame with features (numeric only)
@@ -24,50 +22,41 @@ class ClassSeparabilityAnalyzer:
         """
         self.features_df = features_df
         self.feature_names = features_df.columns
-        self.X = features_df.values  # Convert to numpy array
-        self.y = np.array(y)  # Ensure y is numpy array
-        self.X_scaled = StandardScaler().fit_transform(self.X)
+        self.X = features_df.values
+        self.y = np.array(y)
+        # data is already scaled in preprocessor, use it directly
+        self.X_scaled = self.X
 
-    def fisher_score(self, feature_idx=None):
-        """Calculate Fisher Score for feature(s)."""
-        if feature_idx is None:
-            feature_idx = range(self.X.shape[1])
+    def _calculate_overlap(self, dist1, dist2, bins=50):
+        """Calculate overlap coefficient between two distributions."""
+        range_min = min(np.min(dist1), np.min(dist2))
+        range_max = max(np.max(dist1), np.max(dist2))
 
-        X_subset = self.X[:, feature_idx] if isinstance(feature_idx, list | range) else self.X[:, [feature_idx]]
+        # If all values are identical, return 1.0
+        if range_min == range_max:
+            return 1.0
 
-        # Calculate class-wise means and variances
-        class_0_mask = self.y == 0
-        class_1_mask = self.y == 1
+        # Add small padding to range
+        padding = (range_max - range_min) * 0.01
+        range_min -= padding
+        range_max += padding
 
-        class_0_mean = np.mean(X_subset[class_0_mask], axis=0)
-        class_1_mean = np.mean(X_subset[class_1_mask], axis=0)
-        class_0_var = np.var(X_subset[class_0_mask], axis=0)
-        class_1_var = np.var(X_subset[class_1_mask], axis=0)
+        hist1, bins = np.histogram(dist1, bins=bins, range=(range_min, range_max), density=True)
+        hist2, _ = np.histogram(dist2, bins=bins, range=(range_min, range_max), density=True)
 
-        # Calculate overall mean
-        overall_mean = np.mean(X_subset, axis=0)
+        # Normalize histograms
+        if np.sum(hist1) > 0:
+            hist1 = hist1 / np.sum(hist1)
+        if np.sum(hist2) > 0:
+            hist2 = hist2 / np.sum(hist2)
 
-        # Calculate between-class and within-class variance
-        n0 = np.sum(class_0_mask)
-        n1 = np.sum(class_1_mask)
-        n_total = len(self.y)
-
-        between_class_var = (
-            n0 / n_total * (class_0_mean - overall_mean) ** 2 + n1 / n_total * (class_1_mean - overall_mean) ** 2
-        )
-        within_class_var = n0 / n_total * class_0_var + n1 / n_total * class_1_var
-
-        # Handle zero division
-        within_class_var = np.where(within_class_var == 0, 1e-10, within_class_var)
-
-        return between_class_var / within_class_var
+        return np.minimum(hist1, hist2).sum() * (bins[1] - bins[0])
 
     def analyze_feature_separability(self):
         """Analyze separability of individual features."""
         scores = []
 
         for i in range(self.X.shape[1]):
-            # Get feature data
             feature_vals = self.X[:, i]
             class_0_vals = feature_vals[self.y == 0]
             class_1_vals = feature_vals[self.y == 1]
@@ -78,9 +67,8 @@ class ClassSeparabilityAnalyzer:
 
             # Calculate effect size
             pooled_std = np.sqrt((np.var(class_0_vals) + np.var(class_1_vals)) / 2)
-            effect_size = mean_diff / pooled_std if pooled_std > 0 else np.inf
+            effect_size = mean_diff / pooled_std if pooled_std > 0 else 0.0
 
-            # Calculate distribution overlap
             overlap_coef = self._calculate_overlap(class_0_vals, class_1_vals)
 
             scores.append(
@@ -96,15 +84,35 @@ class ClassSeparabilityAnalyzer:
 
         return pd.DataFrame(scores)
 
-    def _calculate_overlap(self, dist1, dist2, bins=50):
-        """Calculate overlap coefficient between two distributions."""
-        range_min = min(dist1.min(), dist2.min())
-        range_max = max(dist1.max(), dist2.max())
+    def fisher_score(self, feature_idx):
+        """Calculate Fisher Score for a feature."""
+        X_subset = self.X[:, [feature_idx]]
 
-        hist1, bins = np.histogram(dist1, bins=bins, range=(range_min, range_max), density=True)
-        hist2, _ = np.histogram(dist2, bins=bins, range=(range_min, range_max), density=True)
+        class_0_mask = self.y == 0
+        class_1_mask = self.y == 1
 
-        return np.minimum(hist1, hist2).sum() * (bins[1] - bins[0])
+        class_0_mean = np.mean(X_subset[class_0_mask])
+        class_1_mean = np.mean(X_subset[class_1_mask])
+        class_0_var = np.var(X_subset[class_0_mask])
+        class_1_var = np.var(X_subset[class_1_mask])
+
+        # Calculate overall mean
+        overall_mean = np.mean(X_subset)
+
+        # Calculate between-class and within-class variance
+        n0 = np.sum(class_0_mask)
+        n1 = np.sum(class_1_mask)
+        n_total = len(self.y)
+
+        between_class_var = (
+            n0 / n_total * (class_0_mean - overall_mean) ** 2 + n1 / n_total * (class_1_mean - overall_mean) ** 2
+        )
+        within_class_var = n0 / n_total * class_0_var + n1 / n_total * class_1_var
+
+        # Handle zero division
+        within_class_var = max(within_class_var, 1e-10)
+
+        return between_class_var / within_class_var
 
     def analyze_dimensionality_reduction(self):
         """Analyze class separation using different dimensionality reduction techniques."""
@@ -200,28 +208,6 @@ class ClassSeparabilityAnalyzer:
         plt.tight_layout()
         return fig
 
-    def calculate_bhattacharyya_distance(self):
-        """Calculate Bhattacharyya distance between classes."""
-        class_0 = self.X[self.y == 0]
-        class_1 = self.X[self.y == 1]
-
-        # Calculate means and covariances
-        mean0 = np.mean(class_0, axis=0)
-        mean1 = np.mean(class_1, axis=0)
-        cov0 = np.cov(class_0.T)
-        cov1 = np.cov(class_1.T)
-
-        # Calculate average covariance
-        cov_avg = (cov0 + cov1) / 2
-
-        # Calculate first term (mean difference)
-        mean_term = 1 / 8 * (mean1 - mean0).T @ np.linalg.inv(cov_avg) @ (mean1 - mean0)
-
-        # Calculate second term (covariance difference)
-        cov_term = 1 / 2 * np.log(np.linalg.det(cov_avg) / np.sqrt(np.linalg.det(cov0) * np.linalg.det(cov1)))
-
-        return float(mean_term + cov_term)
-
     def analyze_class_overlap(self):
         """Analyze overlap between classes using various metrics."""
         # Calculate centroid distance
@@ -234,12 +220,10 @@ class ClassSeparabilityAnalyzer:
         class_1_distances = np.mean(cdist(self.X_scaled[self.y == 1], [class_1_centroid]))
         avg_within_class_distance = (class_0_distances + class_1_distances) / 2
 
-        # Calculate Bhattacharyya distance
-        bhattacharyya_dist = self.calculate_bhattacharyya_distance()
+        separation_ratio = centroid_distance / avg_within_class_distance
 
         return {
             "centroid_distance": centroid_distance,
             "avg_within_class_distance": avg_within_class_distance,
-            "separation_ratio": centroid_distance / avg_within_class_distance,
-            "bhattacharyya_distance": bhattacharyya_dist,
+            "separation_ratio": separation_ratio,
         }
