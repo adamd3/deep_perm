@@ -8,6 +8,7 @@ from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
+from sklearn.preprocessing import StandardScaler
 
 
 class ClassSeparabilityAnalyzer:
@@ -17,10 +18,10 @@ class ClassSeparabilityAnalyzer:
         self.features_df = features_df
         self.feature_names = features_df.columns
         self.y = np.array(y)
-        self.X = features_df.values
-        self.X = (self.X).replace([np.inf, -np.inf], np.nan)
-        self.X = pd.DataFrame(self.X).fillna(pd.DataFrame(self.X).median()).values
-        self.X_scaled = self.scaler.fit_transform(self.X)
+
+        # replace NA with median and scale features
+        self.X = features_df.replace([np.inf, -np.inf], np.nan).fillna(features_df.median()).values
+        self.X_scaled = StandardScaler().fit_transform(self.X)
 
     def _safe_division(self, a, b):
         """Safely divide two numbers, returning 0 if denominator is 0."""
