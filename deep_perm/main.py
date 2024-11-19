@@ -403,6 +403,7 @@ def main():
     parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
     parser.add_argument("--batch-size", type=int, default=128, help="Batch size for training")
     parser.add_argument("--balanced-sampling", action="store_true", help="Use balanced class sampling for training")
+    parser.add_argument("--weighted_loss", action="store_true", help="Use class weights in loss function")
 
     args = parser.parse_args()
 
@@ -514,6 +515,7 @@ def main():
                 train_indices,
                 target_col=args.target_col,
                 train_loader=train_loader,
+                use_weighted_loss=args.weighted_loss,
             )
 
             logger.info("Starting training...")

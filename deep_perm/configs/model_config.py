@@ -19,7 +19,6 @@ class ModelConfig:
     scheduler_type: str = "plateau"
 
     # DataIQ parameters
-
     # conf_upper: float = 0.75
     # conf_lower: float = 0.25
     # aleatoric_percentile: float = 50
