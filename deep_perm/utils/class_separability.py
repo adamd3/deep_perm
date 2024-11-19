@@ -11,46 +11,62 @@ from sklearn.metrics import silhouette_score
 
 
 class ClassSeparabilityAnalyzer:
-    """Class to analyze separability of classes in a dataset."""
+    """Class to analyze separability of features and classes in a dataset."""
 
     def __init__(self, features_df, y):
-        """Initialize analyzer with feature DataFrame and labels.
-
-        Args:
-            features_df: DataFrame with features (numeric only)
-            y: Labels (n_samples,)
-        """
         self.features_df = features_df
         self.feature_names = features_df.columns
         self.X = features_df.values
         self.y = np.array(y)
-        # data is already scaled in preprocessor, use it directly
+        # data are already scaled in the preprocessor
         self.X_scaled = self.X
+
+    def _safe_division(self, a, b):
+        """Safely divide two numbers, returning 0 if denominator is 0."""
+        return np.divide(a, b, out=np.zeros_like(a), where=b != 0)
+
+    def _safe_histogram(self, data, bins=50):
+        """Compute histogram safely handling edge cases."""
+        # Remove any potential infinities
+        data = data[~np.isinf(data)]
+
+        if len(data) == 0:
+            return np.zeros(bins), np.linspace(0, 1, bins + 1)
+
+        if np.all(data == data[0]):
+            # All values are identical
+            edges = np.linspace(data[0] - 0.5, data[0] + 0.5, bins + 1)
+            hist = np.zeros(bins)
+            hist[bins // 2] = 1.0
+            return hist, edges
+
+        hist, edges = np.histogram(data, bins=bins, density=True)
+        total = np.sum(hist * np.diff(edges))
+        if total > 0:
+            hist = hist / total
+        return hist, edges
 
     def _calculate_overlap(self, dist1, dist2, bins=50):
         """Calculate overlap coefficient between two distributions."""
-        range_min = min(np.min(dist1), np.min(dist2))
-        range_max = max(np.max(dist1), np.max(dist2))
+        # Compute histograms
+        hist1, edges1 = self._safe_histogram(dist1, bins)
+        hist2, edges2 = self._safe_histogram(dist2, bins)
 
-        # If all values are identical, return 1.0
-        if range_min == range_max:
-            return 1.0
+        # Ensure both histograms use the same bins
+        min_edge = min(edges1[0], edges2[0])
+        max_edge = max(edges1[-1], edges2[-1])
+        edges = np.linspace(min_edge, max_edge, bins + 1)
 
-        # Add small padding to range
-        padding = (range_max - range_min) * 0.01
-        range_min -= padding
-        range_max += padding
+        hist1, _ = np.histogram(dist1, bins=edges, density=True)
+        hist2, _ = np.histogram(dist2, bins=edges, density=True)
 
-        hist1, bins = np.histogram(dist1, bins=bins, range=(range_min, range_max), density=True)
-        hist2, _ = np.histogram(dist2, bins=bins, range=(range_min, range_max), density=True)
+        # Normalize
+        hist1 = self._safe_division(hist1, np.sum(hist1 * np.diff(edges)))
+        hist2 = self._safe_division(hist2, np.sum(hist2 * np.diff(edges)))
 
-        # Normalize histograms
-        if np.sum(hist1) > 0:
-            hist1 = hist1 / np.sum(hist1)
-        if np.sum(hist2) > 0:
-            hist2 = hist2 / np.sum(hist2)
-
-        return np.minimum(hist1, hist2).sum() * (bins[1] - bins[0])
+        # Calculate overlap
+        overlap = np.minimum(hist1, hist2).sum() * np.diff(edges)[0]
+        return float(overlap)
 
     def analyze_feature_separability(self):
         """Analyze separability of individual features."""
@@ -61,11 +77,10 @@ class ClassSeparabilityAnalyzer:
             class_0_vals = feature_vals[self.y == 0]
             class_1_vals = feature_vals[self.y == 1]
 
-            # Calculate metrics
+            # Calculate metrics safely
             fisher_score = float(self.fisher_score(i))
             mean_diff = abs(np.mean(class_1_vals) - np.mean(class_0_vals))
 
-            # Calculate effect size
             pooled_std = np.sqrt((np.var(class_0_vals) + np.var(class_1_vals)) / 2)
             effect_size = mean_diff / pooled_std if pooled_std > 0 else 0.0
 
@@ -96,10 +111,8 @@ class ClassSeparabilityAnalyzer:
         class_0_var = np.var(X_subset[class_0_mask])
         class_1_var = np.var(X_subset[class_1_mask])
 
-        # Calculate overall mean
         overall_mean = np.mean(X_subset)
 
-        # Calculate between-class and within-class variance
         n0 = np.sum(class_0_mask)
         n1 = np.sum(class_1_mask)
         n_total = len(self.y)
@@ -109,10 +122,8 @@ class ClassSeparabilityAnalyzer:
         )
         within_class_var = n0 / n_total * class_0_var + n1 / n_total * class_1_var
 
-        # Handle zero division
         within_class_var = max(within_class_var, 1e-10)
-
-        return between_class_var / within_class_var
+        return float(between_class_var / within_class_var)
 
     def analyze_dimensionality_reduction(self):
         """Analyze class separation using different dimensionality reduction techniques."""
@@ -146,6 +157,10 @@ class ClassSeparabilityAnalyzer:
 
     def plot_dimensionality_reduction(self, results):
         """Plot results from dimensionality reduction analysis."""
+        if results is None:
+            print("No dimensionality reduction results to plot")
+            return None
+
         fig, axes = plt.subplots(2, 2, figsize=(15, 15))
 
         # PCA plot
@@ -220,10 +235,10 @@ class ClassSeparabilityAnalyzer:
         class_1_distances = np.mean(cdist(self.X_scaled[self.y == 1], [class_1_centroid]))
         avg_within_class_distance = (class_0_distances + class_1_distances) / 2
 
-        separation_ratio = centroid_distance / avg_within_class_distance
+        separation_ratio = centroid_distance / avg_within_class_distance if avg_within_class_distance > 0 else 0.0
 
         return {
-            "centroid_distance": centroid_distance,
-            "avg_within_class_distance": avg_within_class_distance,
-            "separation_ratio": separation_ratio,
+            "centroid_distance": float(centroid_distance),
+            "avg_within_class_distance": float(avg_within_class_distance),
+            "separation_ratio": float(separation_ratio),
         }
