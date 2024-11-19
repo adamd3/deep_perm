@@ -447,9 +447,9 @@ def main():
             # Load and preprocess data
             logger.info("Loading and preprocessing data...")
             preprocessor = DataPreprocessor()
-            X, y, smiles, outcomes_df = preprocessor.prepare_data(
-                pd.read_csv(args.predictors, sep="\t"), pd.read_csv(args.outcomes, sep="\t"), args.target_col
-            )
+            predictors_df = pd.read_csv(args.predictors, sep="\t")
+            outcomes_df = pd.read_csv(args.outcomes, sep="\t")
+            X, y, smiles, outcomes_df = preprocessor.prepare_data(predictors_df, outcomes_df, args.target_col)
             # Create config
             config = ModelConfig(
                 input_size=X.shape[1],
@@ -467,7 +467,8 @@ def main():
 
             # Class separability analysis:
             logger.info("Analyzing class separability...")
-            analyzer = ClassSeparabilityAnalyzer(X, y)
+            y = outcomes_df[args.target_col].values
+            analyzer = ClassSeparabilityAnalyzer(predictors_df, y)
 
             feature_scores = analyzer.analyze_feature_separability()
             logger.info("\nTop 5 most separable features:")

@@ -2,29 +2,31 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import umap
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
+from umap.umap_ import UMAP  # Fixed UMAP import
 
 
 class ClassSeparabilityAnalyzer:
     """Analyzes separability of classes in feature space using multiple methods."""
 
-    def __init__(self, X, y):
-        """
-        Initialize analyzer with feature matrix and labels.
+    def __init__(self, features_df, y):
+        """Initialize analyzer with feature DataFrame and labels.
 
         Args:
-            X: Feature matrix (n_samples, n_features)
+            features_df: DataFrame with features
             y: Labels (n_samples,)
         """
-        self.X = X
+        self.features_df = features_df
+        # Remove any non-numeric columns (like SMILES)
+        self.numeric_cols = features_df.select_dtypes(include=[np.number]).columns
+        self.X = features_df[self.numeric_cols].values
         self.y = y
-        self.X_scaled = StandardScaler().fit_transform(X)
+        self.X_scaled = StandardScaler().fit_transform(self.X)
 
     def fisher_score(self, feature_idx=None):
         """Calculate Fisher Score for feature(s).
@@ -67,20 +69,26 @@ class ClassSeparabilityAnalyzer:
     def analyze_feature_separability(self):
         """Analyze separability of individual features."""
         scores = []
+        feature_names = self.numeric_cols
+
         for i in range(self.X.shape[1]):
-            fisher_score = self.fisher_score(i)
+            fisher_score = float(self.fisher_score(i))  # Convert from numpy array to float
             class_means = [self.X[self.y == c, i].mean() for c in [0, 1]]
             class_stds = [self.X[self.y == c, i].std() for c in [0, 1]]
             overlap_coef = self._calculate_overlap(self.X[self.y == 0, i], self.X[self.y == 1, i])
 
+            # Calculate effect size, handling potential division by zero
+            pooled_std = np.sqrt((class_stds[0] ** 2 + class_stds[1] ** 2) / 2)
+            effect_size = abs(class_means[1] - class_means[0]) / pooled_std if pooled_std > 0 else np.inf
+
             scores.append(
                 {
+                    "feature_name": feature_names[i],
                     "feature_idx": i,
                     "fisher_score": fisher_score,
                     "mean_diff": abs(class_means[1] - class_means[0]),
                     "overlap_coefficient": overlap_coef,
-                    "effect_size": abs(class_means[1] - class_means[0])
-                    / np.sqrt((class_stds[0] ** 2 + class_stds[1] ** 2) / 2),
+                    "effect_size": effect_size,
                 }
             )
 
@@ -115,7 +123,7 @@ class ClassSeparabilityAnalyzer:
         results["tsne"] = {"coords": X_tsne, "silhouette": silhouette_score(X_tsne, self.y)}
 
         # UMAP
-        reducer = umap.UMAP(n_components=2, random_state=42)
+        reducer = UMAP(n_components=2, random_state=42)
         X_umap = reducer.fit_transform(self.X_scaled)
         results["umap"] = {"coords": X_umap, "silhouette": silhouette_score(X_umap, self.y)}
 
