@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import umap
 from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.manifold import TSNE, UMAP
+from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
@@ -114,8 +115,8 @@ class ClassSeparabilityAnalyzer:
         results["tsne"] = {"coords": X_tsne, "silhouette": silhouette_score(X_tsne, self.y)}
 
         # UMAP
-        umap = UMAP(n_components=2, random_state=42)
-        X_umap = umap.fit_transform(self.X_scaled)
+        reducer = umap.UMAP(n_components=2, random_state=42)
+        X_umap = reducer.fit_transform(self.X_scaled)
         results["umap"] = {"coords": X_umap, "silhouette": silhouette_score(X_umap, self.y)}
 
         # LDA
