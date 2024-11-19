@@ -24,7 +24,7 @@ class ModelConfig:
     # aleatoric_percentile: float = 50
 
     dips_xthresh: float = 50
-    dips_ythresh: float = 0.2
+    dips_ythresh: float = 0.25
 
     def __post_init__(self):
         if self.hidden_sizes is None:
