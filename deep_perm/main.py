@@ -19,6 +19,7 @@ from models.permeability_net import PermeabilityNet
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader
 from trainers.trainer import PermeabilityTrainer
+from utils.class_separability import ClassSeparabilityAnalyzer
 from utils.logger import setup_logger
 from utils.model_analyzer import ModelAnalyzer
 from utils.visualization import VisualizationManager
@@ -463,6 +464,26 @@ def main():
                 batch_size=args.batch_size,
             )
             logger.info(f"Created model config: {config}")
+
+            # Class separability analysis:
+            logger.info("Analyzing class separability...")
+            analyzer = ClassSeparabilityAnalyzer(X, y)
+
+            feature_scores = analyzer.analyze_feature_separability()
+            logger.info("\nTop 5 most separable features:")
+            logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
+
+            dr_results = analyzer.analyze_dimensionality_reduction()
+            fig = analyzer.plot_dimensionality_reduction(dr_results)
+            fig.savefig(base_output_dir / "class_separability.png")
+            plt.close(fig)
+
+            overlap_metrics = analyzer.analyze_class_overlap()
+            logger.info("\nClass overlap metrics:")
+            for metric, value in overlap_metrics.items():
+                logger.info(f"{metric}: {value:.3f}")
+
+            feature_scores.to_csv(base_output_dir / "feature_separability.csv", index=False)
 
             logger.info("Creating data splits...")
 
