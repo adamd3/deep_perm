@@ -1,6 +1,9 @@
 import argparse
 import json
 import warnings
+
+# debugging
+from collections import defaultdict
 from dataclasses import asdict
 from pathlib import Path
 
@@ -164,6 +167,79 @@ def save_experiment_results(output_dir: str, metrics_per_epoch, groups, final_me
     }
     with open(results_dir / "group_stats.json", "w") as f:
         json.dump(group_stats, f, indent=4)
+
+
+class SamplingMonitor:
+    """Monitor class distribution in batches"""
+
+    def __init__(self):
+        self.batch_distributions = []
+        self.epoch_distributions = defaultdict(list)
+
+    def log_batch(self, y_batch):
+        """Log class distribution for a batch"""
+        if torch.is_tensor(y_batch):
+            y_batch = y_batch.cpu().numpy()
+
+        unique, counts = np.unique(y_batch, return_counts=True)
+        dist = dict(zip(unique, counts, strict=False))
+        self.batch_distributions.append(dist)
+
+        # Update running stats per class
+        for class_idx in range(2):  # Binary classification
+            self.epoch_distributions[class_idx].append(dist.get(class_idx, 0) / len(y_batch))
+
+    def plot_distributions(self):
+        """Plot class distributions across batches"""
+        plt.figure(figsize=(12, 6))
+
+        for class_idx in range(2):
+            proportions = self.epoch_distributions[class_idx]
+            plt.plot(proportions, label=f"Class {class_idx}", alpha=0.7)
+
+            # Add mean line
+            mean_prop = np.mean(proportions)
+            plt.axhline(
+                y=mean_prop,
+                color=f"C{class_idx}",
+                linestyle="--",
+                alpha=0.5,
+                label=f"Class {class_idx} Mean: {mean_prop:.3f}",
+            )
+
+        plt.xlabel("Batch Number")
+        plt.ylabel("Class Proportion")
+        plt.title("Class Distribution Across Batches")
+        plt.legend()
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+    def summarize(self):
+        """Print summary statistics"""
+        print("\nBatch Distribution Summary:")
+        print("-" * 30)
+
+        for class_idx in range(2):
+            proportions = self.epoch_distributions[class_idx]
+            print(f"\nClass {class_idx}:")
+            print(f"Mean proportion: {np.mean(proportions):.3f}")
+            print(f"Std deviation: {np.std(proportions):.3f}")
+            print(f"Min proportion: {np.min(proportions):.3f}")
+            print(f"Max proportion: {np.max(proportions):.3f}")
+
+
+def analyze_loader(loader: DataLoader, num_batches: int = None):
+    """Analyze class distribution in a dataloader"""
+    monitor = SamplingMonitor()
+
+    for i, (_, y) in enumerate(loader):
+        if num_batches and i >= num_batches:
+            break
+        monitor.log_batch(y)
+
+    monitor.plot_distributions()
+    monitor.summarize()
+    return monitor
 
 
 # TODO: move this to the model_analyzer script
@@ -415,6 +491,14 @@ def main():
                 train_loader = create_balanced_loader(train_dataset, config.batch_size)
             else:
                 train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+
+            # Debug class distribution
+            total_pos = (train_dataset.y == 1).sum()
+            total_neg = (train_dataset.y == 0).sum()
+            print("Original distribution:")
+            print(f"Positive examples: {total_pos} ({total_pos/len(train_dataset):.3f})")
+            print(f"Negative examples: {total_neg} ({total_neg/len(train_dataset):.3f})")
+            analyze_loader(train_loader, num_batches=100)
 
             val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
             test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
