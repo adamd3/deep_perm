@@ -15,51 +15,47 @@ class ClassSeparabilityAnalyzer:
     """Analyzes separability of classes in feature space using multiple methods."""
 
     def __init__(self, features_df, y):
-        """Initialize analyzer with feature DataFrame and labels.
+        """
+        Initialize analyzer with feature DataFrame and labels.
 
         Args:
-            features_df: DataFrame with features
+            features_df: DataFrame with features (numeric only)
             y: Labels (n_samples,)
         """
         self.features_df = features_df
-        # Remove any non-numeric columns (like SMILES)
-        self.numeric_cols = features_df.select_dtypes(include=[np.number]).columns
-        self.X = features_df[self.numeric_cols].values
-        self.y = y
+        self.feature_names = features_df.columns
+        self.X = features_df.values  # Convert to numpy array
+        self.y = np.array(y)  # Ensure y is numpy array
         self.X_scaled = StandardScaler().fit_transform(self.X)
 
     def fisher_score(self, feature_idx=None):
-        """Calculate Fisher Score for feature(s).
-
-        Args:
-            feature_idx: Optional index or list of indices for specific features
-                       If None, calculates for all features
-        """
+        """Calculate Fisher Score for feature(s)."""
         if feature_idx is None:
             feature_idx = range(self.X.shape[1])
 
         X_subset = self.X[:, feature_idx] if isinstance(feature_idx, list | range) else self.X[:, [feature_idx]]
 
         # Calculate class-wise means and variances
-        classes = np.unique(self.y)
-        class_means = np.array([X_subset[self.y == c].mean(axis=0) for c in classes])
-        class_vars = np.array([X_subset[self.y == c].var(axis=0) for c in classes])
+        class_0_mask = self.y == 0
+        class_1_mask = self.y == 1
+
+        class_0_mean = np.mean(X_subset[class_0_mask], axis=0)
+        class_1_mean = np.mean(X_subset[class_1_mask], axis=0)
+        class_0_var = np.var(X_subset[class_0_mask], axis=0)
+        class_1_var = np.var(X_subset[class_1_mask], axis=0)
 
         # Calculate overall mean
-        overall_mean = X_subset.mean(axis=0)
+        overall_mean = np.mean(X_subset, axis=0)
 
         # Calculate between-class and within-class variance
-        between_class_var = np.sum(
-            [
-                (len(X_subset[self.y == c]) / len(X_subset)) * (m - overall_mean) ** 2
-                for c, m in zip(classes, class_means, strict=False)
-            ],
-            axis=0,
+        n0 = np.sum(class_0_mask)
+        n1 = np.sum(class_1_mask)
+        n_total = len(self.y)
+
+        between_class_var = (
+            n0 / n_total * (class_0_mean - overall_mean) ** 2 + n1 / n_total * (class_1_mean - overall_mean) ** 2
         )
-        within_class_var = np.sum(
-            [(len(X_subset[self.y == c]) / len(X_subset)) * v for c, v in zip(classes, class_vars, strict=False)],
-            axis=0,
-        )
+        within_class_var = n0 / n_total * class_0_var + n1 / n_total * class_1_var
 
         # Handle zero division
         within_class_var = np.where(within_class_var == 0, 1e-10, within_class_var)
@@ -69,24 +65,30 @@ class ClassSeparabilityAnalyzer:
     def analyze_feature_separability(self):
         """Analyze separability of individual features."""
         scores = []
-        feature_names = self.numeric_cols
 
         for i in range(self.X.shape[1]):
-            fisher_score = float(self.fisher_score(i))  # Convert from numpy array to float
-            class_means = [self.X[self.y == c, i].mean() for c in [0, 1]]
-            class_stds = [self.X[self.y == c, i].std() for c in [0, 1]]
-            overlap_coef = self._calculate_overlap(self.X[self.y == 0, i], self.X[self.y == 1, i])
+            # Get feature data
+            feature_vals = self.X[:, i]
+            class_0_vals = feature_vals[self.y == 0]
+            class_1_vals = feature_vals[self.y == 1]
 
-            # Calculate effect size, handling potential division by zero
-            pooled_std = np.sqrt((class_stds[0] ** 2 + class_stds[1] ** 2) / 2)
-            effect_size = abs(class_means[1] - class_means[0]) / pooled_std if pooled_std > 0 else np.inf
+            # Calculate metrics
+            fisher_score = float(self.fisher_score(i))
+            mean_diff = abs(np.mean(class_1_vals) - np.mean(class_0_vals))
+
+            # Calculate effect size
+            pooled_std = np.sqrt((np.var(class_0_vals) + np.var(class_1_vals)) / 2)
+            effect_size = mean_diff / pooled_std if pooled_std > 0 else np.inf
+
+            # Calculate distribution overlap
+            overlap_coef = self._calculate_overlap(class_0_vals, class_1_vals)
 
             scores.append(
                 {
-                    "feature_name": feature_names[i],
+                    "feature_name": self.feature_names[i],
                     "feature_idx": i,
                     "fisher_score": fisher_score,
-                    "mean_diff": abs(class_means[1] - class_means[0]),
+                    "mean_diff": mean_diff,
                     "overlap_coefficient": overlap_coef,
                     "effect_size": effect_size,
                 }
