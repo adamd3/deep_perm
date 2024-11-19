@@ -395,10 +395,10 @@ def main():
     parser.add_argument(
         "--dips-xthresh",
         type=float,
-        default=0,
+        default=50,
         help="X-threshold for DataIQ classification. Default (0) = choose automatically",
     )
-    parser.add_argument("--dips-ythresh", type=float, default=0.2, help="Y-threshold for DataIQ classification")
+    parser.add_argument("--dips-ythresh", type=float, default=0.25, help="Y-threshold for DataIQ classification")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
     parser.add_argument("--batch-size", type=int, default=128, help="Batch size for training")
