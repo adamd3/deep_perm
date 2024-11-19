@@ -33,7 +33,7 @@ class PermeabilityTrainer:
         self.device = device
         self.output_dir = Path(output_dir)
 
-        if use_weighted_loss and outcomes_df is not None and train_indices is not None and target_col is not None:
+        if outcomes_df is not None and train_indices is not None and target_col is not None:
             self.outcomes_df = outcomes_df.iloc[train_indices].reset_index(drop=True)
             labels = outcomes_df[target_col].values  # Use full dataset for weights
 
@@ -51,11 +51,18 @@ class PermeabilityTrainer:
             # Negative class: ~0.89 * 0.5 = 0.445
             # Positive class: ~3.68 * 0.5 = 1.84
 
-            weights = torch.tensor(weights, dtype=torch.float32).to(device)
-            self.criterion = nn.NLLLoss(weight=weights)
+            if use_weighted_loss:
+                weights = torch.tensor(weights, dtype=torch.float32).to(device)
+                self.criterion = nn.NLLLoss(weight=weights)
+            else:
+                self.criterion = nn.NLLLoss()
         else:
             self.criterion = nn.NLLLoss()
             self.outcomes_df = None
+
+        # else:
+        #     self.criterion = nn.NLLLoss()
+        #     self.outcomes_df = None
 
         #     if outcomes_df is not None and train_indices is not None and target_col is not None:
         #         self.outcomes_df = outcomes_df.iloc[train_indices].reset_index(drop=True)
