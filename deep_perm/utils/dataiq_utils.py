@@ -26,6 +26,8 @@ def classify_examples(confidence, aleatoric, dips_xthresh, dips_ythresh):
         & ~((confidence <= conf_thresh_low) & (aleatoric <= alea_perc))
     ] = "Ambiguous"
 
+    print(f"Using thresholds: {dips_xthresh}, {alea_perc}, {dips_ythresh}")
+
     return groups
 
 
