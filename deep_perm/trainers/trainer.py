@@ -37,22 +37,29 @@ class PermeabilityTrainer:
             self.outcomes_df = outcomes_df.iloc[train_indices].reset_index(drop=True)
             labels = outcomes_df[target_col].values  # Use full dataset for weights
 
-            # Calculate inverse frequency weights
-            counts = np.bincount(labels)
-            total = len(labels)
-            weights = total / (len(counts) * counts)
+            # # Calculate inverse frequency weights
+            # counts = np.bincount(labels)
+            # total = len(labels)
+            # weights = total / (len(counts) * counts)
 
-            # Optional: Add scaling factor (e.g., 0.5 to dampen weights)
-            scaling_factor = 0.5
-            weights = weights * scaling_factor
+            # # Optional: Add scaling factor (e.g., 0.5 to dampen weights)
+            # scaling_factor = 0.5
+            # weights = weights * scaling_factor
 
-            # With currentclass distribution (438 positive, 1818 negative), this
-            # gives weights approximately:
-            # Negative class: ~0.89 * 0.5 = 0.445
-            # Positive class: ~3.68 * 0.5 = 1.84
+            # weights = torch.tensor(weights, dtype=torch.float32).to(device)
+
+            # # With currentclass distribution (438 positive, 1818 negative), this
+            # # gives weights approximately:
+            # # Negative class: ~0.89 * 0.5 = 0.445
+            # # Positive class: ~3.68 * 0.5 = 1.84
+
+            neg_count = (labels == 0).sum()
+            pos_count = (labels == 1).sum()
+            pos_weight = np.sqrt(neg_count / pos_count)  # Square root to dampen the weight
+            pos_weight = min(float(pos_weight), 10.0)  # Cap max
+            weights = torch.tensor([1.0, float(pos_weight)], dtype=torch.float32).to(device)
 
             if use_weighted_loss:
-                weights = torch.tensor(weights, dtype=torch.float32).to(device)
                 self.criterion = nn.NLLLoss(weight=weights)
             else:
                 self.criterion = nn.NLLLoss()
