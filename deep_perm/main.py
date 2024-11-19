@@ -405,6 +405,7 @@ def main():
     parser.add_argument("--batch-size", type=int, default=128, help="Batch size for training")
     parser.add_argument("--balanced-sampling", action="store_true", help="Use balanced class sampling for training")
     parser.add_argument("--weighted-loss", action="store_true", help="Use class weights in loss function")
+    parser.add_argument("--class-separability", action="store_true", help="Perform class separability analysis")
 
     args = parser.parse_args()
 
@@ -484,28 +485,29 @@ def main():
             ) = splits
 
             # Class separability analysis:
-            logger.info("Analyzing class separability...")
+            if args.class_separability:
+                logger.info("Analyzing class separability...")
 
-            train_predictors = predictors_df.iloc[train_indices]
-            numeric_predictors = train_predictors.select_dtypes(include=[np.number])
+                train_predictors = predictors_df.iloc[train_indices]
+                numeric_predictors = train_predictors.select_dtypes(include=[np.number])
 
-            analyzer = ClassSeparabilityAnalyzer(numeric_predictors, y_train)
+                analyzer = ClassSeparabilityAnalyzer(numeric_predictors, y_train)
 
-            feature_scores = analyzer.analyze_feature_separability()
-            logger.info("\nTop 5 most separable features:")
-            logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
+                feature_scores = analyzer.analyze_feature_separability()
+                logger.info("\nTop 5 most separable features:")
+                logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
 
-            dr_results = analyzer.analyze_dimensionality_reduction()
-            fig = analyzer.plot_dimensionality_reduction(dr_results)
-            fig.savefig(base_output_dir / "class_separability.png")
-            plt.close(fig)
+                dr_results = analyzer.analyze_dimensionality_reduction()
+                fig = analyzer.plot_dimensionality_reduction(dr_results)
+                fig.savefig(base_output_dir / "class_separability.png")
+                plt.close(fig)
 
-            overlap_metrics = analyzer.analyze_class_overlap()
-            logger.info("\nClass overlap metrics:")
-            for metric, value in overlap_metrics.items():
-                logger.info(f"{metric}: {value:.3f}")
+                overlap_metrics = analyzer.analyze_class_overlap()
+                logger.info("\nClass overlap metrics:")
+                for metric, value in overlap_metrics.items():
+                    logger.info(f"{metric}: {value:.3f}")
 
-            feature_scores.to_csv(base_output_dir / "feature_separability.csv", index=False)
+                feature_scores.to_csv(base_output_dir / "feature_separability.csv", index=False)
 
             # Create datasets and loaders
             train_dataset = PermeabilityDataset(X_train, y_train)
