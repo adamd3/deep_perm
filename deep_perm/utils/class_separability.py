@@ -316,6 +316,9 @@ class ClassSeparabilityAnalyzer:
 
     def analyze_class_overlap(self):
         """Analyze overlap between classes using various metrics."""
+        # Calculate feature-level separability
+        self.analyze_feature_separability()
+
         # Calculate centroid distance
         class_0_centroid = np.mean(self.X_scaled[self.y == 0], axis=0)
         class_1_centroid = np.mean(self.X_scaled[self.y == 1], axis=0)
