@@ -417,12 +417,23 @@ def main():
 
     logger = setup_logger(__name__, base_output_dir / "experiment.log")
     logger.info(f"Starting experiment with {args.n_runs} runs using device: {device}")
-
     # Load and preprocess data once at the start
     logger.info("Loading and preprocessing data...")
     preprocessor = DataPreprocessor()
     predictors_df = pd.read_csv(args.predictors, sep="\t")
     outcomes_df = pd.read_csv(args.outcomes, sep="\t")
+
+    # Get the merged dataset before preprocessing
+    if "smiles" in predictors_df.columns and "smiles" in outcomes_df.columns:
+        merged_df = pd.merge(predictors_df, outcomes_df, on="smiles", how="inner")
+        logger.info("Merged datasets on 'smiles' column")
+    elif "name" in predictors_df.columns and "name" in outcomes_df.columns:
+        merged_df = pd.merge(predictors_df, outcomes_df, on="name", how="inner")
+        logger.info("Merged datasets on 'name' column")
+    else:
+        raise ValueError("Neither 'smiles' nor 'name' columns are shared between the input files.")
+
+    # Preprocess the data
     X, y, smiles, outcomes_df = preprocessor.prepare_data(predictors_df, outcomes_df, args.target_col)
 
     # Create config once (since input_size won't change)
@@ -440,8 +451,15 @@ def main():
     # Class separability analysis:
     if args.class_separability:
         logger.info("Analyzing class separability on full dataset...")
-        numeric_predictors = predictors_df.select_dtypes(include=[np.number])
-        analyzer = ClassSeparabilityAnalyzer(numeric_predictors, y)
+
+        # Use the numeric columns from the merged dataset
+        feature_cols = [col for col in merged_df.columns if col not in ["smiles", "name", args.target_col]]
+        numeric_predictors = merged_df[feature_cols].select_dtypes(include=[np.number])
+
+        # Create binary outcome based on threshold (same as in preprocessor)
+        binary_target = (merged_df[args.target_col] >= preprocessor.threshold).astype(int)
+
+        analyzer = ClassSeparabilityAnalyzer(numeric_predictors, binary_target)
 
         feature_scores = analyzer.analyze_feature_separability()
         logger.info("\nTop 5 most separable features:")
