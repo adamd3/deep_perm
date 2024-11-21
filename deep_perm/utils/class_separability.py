@@ -134,10 +134,15 @@ class ClassSeparabilityAnalyzer:
         # PCA
         pca = PCA(n_components=2)
         X_pca = pca.fit_transform(self.X_scaled)
+        # Silhouette on full dimensions
+        full_silhouette = silhouette_score(self.X_scaled, self.y)
+        # Silhouette on 2D projection
+        pca_silhouette = silhouette_score(X_pca, self.y)
         results["pca"] = {
             "coords": X_pca,
             "explained_var": pca.explained_variance_ratio_,
-            "silhouette": silhouette_score(X_pca, self.y),
+            "silhouette_2d": pca_silhouette,
+            "silhouette_full": full_silhouette,
         }
 
         # t-SNE
@@ -163,6 +168,8 @@ class ClassSeparabilityAnalyzer:
             print("No dimensionality reduction results to plot")
             return None
 
+        plt.rcParams.update({"font.size": 14})  # Increase base font size
+
         fig, axes = plt.subplots(2, 2, figsize=(15, 15))
         labels = ["Impermeant", "Permeant"]
 
@@ -181,9 +188,13 @@ class ClassSeparabilityAnalyzer:
         )
         axes[0, 0].set_title(
             f"PCA (Explained var: {results['pca']['explained_var'].sum():.2f})\n"
-            f"Silhouette: {results['pca']['silhouette']:.2f}"
+            f"2D Silhouette: {results['pca']['silhouette_2d']:.2f}\n"
+            f"Full-dim Silhouette: {results['pca']['silhouette_full']:.2f}",
+            fontsize=16,
+            pad=20,
         )
-        axes[0, 0].legend()
+        axes[0, 0].legend(fontsize=14)
+        axes[0, 0].tick_params(axis="both", which="major", labelsize=12)
 
         # t-SNE plot
         axes[0, 1].scatter(
@@ -198,8 +209,9 @@ class ClassSeparabilityAnalyzer:
             alpha=0.5,
             label=labels[1],
         )
-        axes[0, 1].set_title(f"t-SNE\nSilhouette: {results['tsne']['silhouette']:.2f}")
-        axes[0, 1].legend()
+        axes[0, 1].set_title(f"t-SNE\nSilhouette: {results['tsne']['silhouette']:.2f}", fontsize=16, pad=20)
+        axes[0, 1].legend(fontsize=14)
+        axes[0, 1].tick_params(axis="both", which="major", labelsize=12)
 
         # UMAP plot
         axes[1, 0].scatter(
@@ -214,14 +226,16 @@ class ClassSeparabilityAnalyzer:
             alpha=0.5,
             label=labels[1],
         )
-        axes[1, 0].set_title(f"UMAP\nSilhouette: {results['umap']['silhouette']:.2f}")
-        axes[1, 0].legend()
+        axes[1, 0].set_title(f"UMAP\nSilhouette: {results['umap']['silhouette']:.2f}", fontsize=16, pad=20)
+        axes[1, 0].legend(fontsize=14)
+        axes[1, 0].tick_params(axis="both", which="major", labelsize=12)
 
         # LDA distribution plot
         sns.kdeplot(data=results["lda"]["coords"][self.y == 0].ravel(), ax=axes[1, 1], label=labels[0])
         sns.kdeplot(data=results["lda"]["coords"][self.y == 1].ravel(), ax=axes[1, 1], label=labels[1])
-        axes[1, 1].set_title("LDA Projection")
-        axes[1, 1].legend()
+        axes[1, 1].set_title("LDA Projection", fontsize=16, pad=20)
+        axes[1, 1].legend(fontsize=14)
+        axes[1, 1].tick_params(axis="both", which="major", labelsize=12)
 
         plt.tight_layout()
         return fig
