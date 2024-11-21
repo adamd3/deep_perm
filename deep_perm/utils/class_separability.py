@@ -71,7 +71,7 @@ class ClassSeparabilityAnalyzer:
         return float(overlap)
 
     def analyze_feature_separability(self):
-        """Analyze separability of individual features."""
+        """Analyze separability of individual features and plot distributions."""
         scores = []
 
         for i in range(self.X.shape[1]):
@@ -79,7 +79,6 @@ class ClassSeparabilityAnalyzer:
             class_0_vals = feature_vals[self.y == 0]
             class_1_vals = feature_vals[self.y == 1]
 
-            # Calculate metrics safely
             fisher_score = float(self.fisher_score(i))
             mean_diff = abs(np.mean(class_1_vals) - np.mean(class_0_vals))
 
@@ -99,7 +98,68 @@ class ClassSeparabilityAnalyzer:
                 }
             )
 
-        return pd.DataFrame(scores)
+        scores_df = pd.DataFrame(scores)
+
+        # Create distribution plots
+        plt.rcParams.update({"font.size": 14})
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig.suptitle("Distribution of Feature Separability Metrics", fontsize=16, y=0.95)
+
+        metrics = ["fisher_score", "effect_size", "overlap_coefficient", "mean_diff"]
+        titles = ["Fisher Score", "Effect Size", "Overlap Coefficient", "Mean Difference"]
+
+        for ax, metric, title in zip(axes.ravel(), metrics, titles, strict=False):
+            # Histogram
+            sns.histplot(data=scores_df, x=metric, ax=ax, bins=20, alpha=0.6)
+
+            # Add median line
+            median = scores_df[metric].median()
+            ax.axvline(median, color="red", linestyle="--", alpha=0.8)
+            ax.text(
+                0.98,
+                0.95,
+                f"Median: {median:.3f}",
+                transform=ax.transAxes,
+                horizontalalignment="right",
+                bbox={"facecolor": "white", "alpha": 0.8},
+            )
+
+            # Label top features
+            top_5 = scores_df.nlargest(5, metric)
+            y_max = ax.get_ylim()[1]
+            for _, row in top_5.iterrows():
+                ax.text(row[metric], y_max * 0.95, row["feature_name"][:20], rotation=45, fontsize=8)
+
+            ax.set_title(title)
+            ax.set_xlabel(metric.replace("_", " ").title())
+
+        plt.tight_layout()
+        plt.savefig("feature_metrics_distribution.png")
+        plt.close()
+
+        return scores_df
+
+    def _calculate_mahalanobis(self, class_0_data, class_1_data):
+        """Calculate Mahalanobis distance between class centroids."""
+        # Calculate centroids
+        centroid_0 = np.mean(class_0_data, axis=0)
+        centroid_1 = np.mean(class_1_data, axis=0)
+
+        # Pool covariance matrices
+        cov_0 = np.cov(class_0_data, rowvar=False)
+        cov_1 = np.cov(class_1_data, rowvar=False)
+        n_0 = len(class_0_data)
+        n_1 = len(class_1_data)
+        pooled_cov = ((n_0 * cov_0) + (n_1 * cov_1)) / (n_0 + n_1)
+
+        try:
+            # Calculate Mahalanobis distance
+            inv_covmat = np.linalg.inv(pooled_cov)
+            diff = centroid_0 - centroid_1
+            mahalanobis = np.sqrt(diff.dot(inv_covmat).dot(diff))
+            return float(mahalanobis)
+        except np.linalg.LinAlgError:
+            return float("nan")
 
     def fisher_score(self, feature_idx):
         """Calculate Fisher Score for a feature."""
@@ -131,24 +191,44 @@ class ClassSeparabilityAnalyzer:
         """Analyze class separation using different dimensionality reduction techniques."""
         results = {}
 
-        # PCA
-        pca = PCA(n_components=2)
-        X_pca = pca.fit_transform(self.X_scaled)
-        # Silhouette on full dimensions
-        full_silhouette = silhouette_score(self.X_scaled, self.y)
-        # Silhouette on 2D projection
-        pca_silhouette = silhouette_score(X_pca, self.y)
+        # PCA with full dimensions for silhouette
+        pca = PCA()
+        X_pca_full = pca.fit_transform(self.X_scaled)
+        pca_silhouette = silhouette_score(X_pca_full, self.y)
+
+        # PCA 2D for visualization
+        pca_2d = PCA(n_components=2)
+        X_pca_2d = pca_2d.fit_transform(self.X_scaled)
+
         results["pca"] = {
-            "coords": X_pca,
+            "coords": X_pca_2d,  # Keep 2D for visualization
             "explained_var": pca.explained_variance_ratio_,
-            "silhouette_2d": pca_silhouette,
-            "silhouette_full": full_silhouette,
+            "silhouette_full": pca_silhouette,
+            "cumulative_var": np.cumsum(pca.explained_variance_ratio_),
         }
 
-        # t-SNE
-        tsne = TSNE(n_components=2, random_state=42)
-        X_tsne = tsne.fit_transform(self.X_scaled)
-        results["tsne"] = {"coords": X_tsne, "silhouette": silhouette_score(X_tsne, self.y)}
+        # Add minimum dimensions needed for X% variance explained
+        thresholds = [0.8, 0.9, 0.95]
+        dims_needed = {}
+        for threshold in thresholds:
+            dims = np.argmax(results["pca"]["cumulative_var"] >= threshold) + 1
+            dims_needed[f"dims_for_{threshold:.0%}"] = int(dims)
+        results["pca"]["dims_needed"] = dims_needed
+
+        # Mahalanobis distance between classes
+        class_0_data = self.X_scaled[self.y == 0]
+        class_1_data = self.X_scaled[self.y == 1]
+        mahalanobis_dist = self._calculate_mahalanobis(class_0_data, class_1_data)
+        results["mahalanobis_distance"] = mahalanobis_dist
+
+        # t-SNE with perplexity sensitivity
+        perplexities = [5, 30, 50]
+        tsne_results = {}
+        for perp in perplexities:
+            tsne = TSNE(n_components=2, random_state=42, perplexity=perp)
+            X_tsne = tsne.fit_transform(self.X_scaled)
+            tsne_results[f"perp_{perp}"] = {"coords": X_tsne, "silhouette": silhouette_score(X_tsne, self.y)}
+        results["tsne"] = tsne_results
 
         # UMAP
         reducer = umap.UMAP(n_neighbors=15, min_dist=0.1, n_components=2, random_state=42)
@@ -156,21 +236,21 @@ class ClassSeparabilityAnalyzer:
         results["umap"] = {"coords": X_umap, "silhouette": silhouette_score(X_umap, self.y)}
 
         # LDA
-        lda = LinearDiscriminantAnalysis(n_components=1)
+        lda = LinearDiscriminantAnalysis()
         X_lda = lda.fit_transform(self.X_scaled, self.y)
-        results["lda"] = {"coords": X_lda, "explained_var": lda.explained_variance_ratio_}
+        results["lda"] = {
+            "coords": X_lda,
+            "explained_var": lda.explained_variance_ratio_,
+            "coef": lda.coef_,
+            "intercept": lda.intercept_,
+        }
 
         return results
 
     def plot_dimensionality_reduction(self, results):
         """Plot results from dimensionality reduction analysis."""
-        if results is None:
-            print("No dimensionality reduction results to plot")
-            return None
-
-        plt.rcParams.update({"font.size": 14})  # Increase base font size
-
-        fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+        plt.rcParams.update({"font.size": 14})
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         labels = ["Impermeant", "Permeant"]
 
         # PCA plot
@@ -187,55 +267,54 @@ class ClassSeparabilityAnalyzer:
             label=labels[1],
         )
         axes[0, 0].set_title(
-            f"PCA (Explained var: {results['pca']['explained_var'].sum():.2f})\n"
-            f"2D Silhouette: {results['pca']['silhouette_2d']:.2f}\n"
-            f"Full-dim Silhouette: {results['pca']['silhouette_full']:.2f}",
+            f"PCA\nSilhouette (full): {results['pca']['silhouette_full']:.2f}\n"
+            f"Dims for 90% var: {results['pca']['dims_needed']['dims_for_90%']}",
             fontsize=16,
-            pad=20,
         )
-        axes[0, 0].legend(fontsize=14)
-        axes[0, 0].tick_params(axis="both", which="major", labelsize=12)
+        axes[0, 0].legend()
 
-        # t-SNE plot
-        axes[0, 1].scatter(
-            results["tsne"]["coords"][self.y == 0, 0],
-            results["tsne"]["coords"][self.y == 0, 1],
-            alpha=0.5,
-            label=labels[0],
-        )
-        axes[0, 1].scatter(
-            results["tsne"]["coords"][self.y == 1, 0],
-            results["tsne"]["coords"][self.y == 1, 1],
-            alpha=0.5,
-            label=labels[1],
-        )
-        axes[0, 1].set_title(f"t-SNE\nSilhouette: {results['tsne']['silhouette']:.2f}", fontsize=16, pad=20)
-        axes[0, 1].legend(fontsize=14)
-        axes[0, 1].tick_params(axis="both", which="major", labelsize=12)
+        # Cumulative variance plot
+        axes[0, 1].plot(np.arange(1, len(results["pca"]["cumulative_var"]) + 1), results["pca"]["cumulative_var"], "-o")
+        axes[0, 1].set_xlabel("Number of Components")
+        axes[0, 1].set_ylabel("Cumulative Explained Variance")
+        axes[0, 1].set_title("PCA Cumulative Variance")
+        axes[0, 1].grid(True)
+
+        # t-SNE plots with different perplexities
+        row, col = 0, 2
+        for perp, tsne_data in results["tsne"].items():
+            axes[row, col].scatter(
+                tsne_data["coords"][self.y == 0, 0], tsne_data["coords"][self.y == 0, 1], alpha=0.5, label=labels[0]
+            )
+            axes[row, col].scatter(
+                tsne_data["coords"][self.y == 1, 0], tsne_data["coords"][self.y == 1, 1], alpha=0.5, label=labels[1]
+            )
+            axes[row, col].set_title(f"t-SNE ({perp})\nSilhouette: {tsne_data['silhouette']:.2f}")
+            axes[row, col].legend()
+            row = 1 if col == 2 else row
+            col = 0 if col == 2 else 2
 
         # UMAP plot
-        axes[1, 0].scatter(
+        axes[1, 1].scatter(
             results["umap"]["coords"][self.y == 0, 0],
             results["umap"]["coords"][self.y == 0, 1],
             alpha=0.5,
             label=labels[0],
         )
-        axes[1, 0].scatter(
+        axes[1, 1].scatter(
             results["umap"]["coords"][self.y == 1, 0],
             results["umap"]["coords"][self.y == 1, 1],
             alpha=0.5,
             label=labels[1],
         )
-        axes[1, 0].set_title(f"UMAP\nSilhouette: {results['umap']['silhouette']:.2f}", fontsize=16, pad=20)
-        axes[1, 0].legend(fontsize=14)
-        axes[1, 0].tick_params(axis="both", which="major", labelsize=12)
+        axes[1, 1].set_title(f"UMAP\nSilhouette: {results['umap']['silhouette']:.2f}")
+        axes[1, 1].legend()
 
         # LDA distribution plot
-        sns.kdeplot(data=results["lda"]["coords"][self.y == 0].ravel(), ax=axes[1, 1], label=labels[0])
-        sns.kdeplot(data=results["lda"]["coords"][self.y == 1].ravel(), ax=axes[1, 1], label=labels[1])
-        axes[1, 1].set_title("LDA Projection", fontsize=16, pad=20)
-        axes[1, 1].legend(fontsize=14)
-        axes[1, 1].tick_params(axis="both", which="major", labelsize=12)
+        sns.kdeplot(data=results["lda"]["coords"][self.y == 0].ravel(), ax=axes[1, 2], label=labels[0])
+        sns.kdeplot(data=results["lda"]["coords"][self.y == 1].ravel(), ax=axes[1, 2], label=labels[1])
+        axes[1, 2].set_title("LDA Projection")
+        axes[1, 2].legend()
 
         plt.tight_layout()
         return fig
