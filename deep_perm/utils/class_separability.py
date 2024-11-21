@@ -164,19 +164,20 @@ class ClassSeparabilityAnalyzer:
             return None
 
         fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+        labels = ["Impermeant", "Permeant"]
 
         # PCA plot
         axes[0, 0].scatter(
             results["pca"]["coords"][self.y == 0, 0],
             results["pca"]["coords"][self.y == 0, 1],
             alpha=0.5,
-            label="Class 0",
+            label=labels[0],
         )
         axes[0, 0].scatter(
             results["pca"]["coords"][self.y == 1, 0],
             results["pca"]["coords"][self.y == 1, 1],
             alpha=0.5,
-            label="Class 1",
+            label=labels[1],
         )
         axes[0, 0].set_title(
             f"PCA (Explained var: {results['pca']['explained_var'].sum():.2f})\n"
@@ -189,13 +190,13 @@ class ClassSeparabilityAnalyzer:
             results["tsne"]["coords"][self.y == 0, 0],
             results["tsne"]["coords"][self.y == 0, 1],
             alpha=0.5,
-            label="Class 0",
+            label=labels[0],
         )
         axes[0, 1].scatter(
             results["tsne"]["coords"][self.y == 1, 0],
             results["tsne"]["coords"][self.y == 1, 1],
             alpha=0.5,
-            label="Class 1",
+            label=labels[1],
         )
         axes[0, 1].set_title(f"t-SNE\nSilhouette: {results['tsne']['silhouette']:.2f}")
         axes[0, 1].legend()
@@ -205,20 +206,20 @@ class ClassSeparabilityAnalyzer:
             results["umap"]["coords"][self.y == 0, 0],
             results["umap"]["coords"][self.y == 0, 1],
             alpha=0.5,
-            label="Class 0",
+            label=labels[0],
         )
         axes[1, 0].scatter(
             results["umap"]["coords"][self.y == 1, 0],
             results["umap"]["coords"][self.y == 1, 1],
             alpha=0.5,
-            label="Class 1",
+            label=labels[1],
         )
         axes[1, 0].set_title(f"UMAP\nSilhouette: {results['umap']['silhouette']:.2f}")
         axes[1, 0].legend()
 
         # LDA distribution plot
-        sns.kdeplot(data=results["lda"]["coords"][self.y == 0].ravel(), ax=axes[1, 1], label="Class 0")
-        sns.kdeplot(data=results["lda"]["coords"][self.y == 1].ravel(), ax=axes[1, 1], label="Class 1")
+        sns.kdeplot(data=results["lda"]["coords"][self.y == 0].ravel(), ax=axes[1, 1], label=labels[0])
+        sns.kdeplot(data=results["lda"]["coords"][self.y == 1].ravel(), ax=axes[1, 1], label=labels[1])
         axes[1, 1].set_title("LDA Projection")
         axes[1, 1].legend()
 
