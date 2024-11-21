@@ -396,7 +396,7 @@ def main():
     parser.add_argument(
         "--dips-xthresh",
         type=float,
-        default=50,
+        default=75,
         help="X-threshold for DataIQ classification. Default (0) = choose automatically",
     )
     parser.add_argument("--dips-ythresh", type=float, default=0.25, help="Y-threshold for DataIQ classification")

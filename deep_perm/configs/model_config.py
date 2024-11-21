@@ -23,7 +23,7 @@ class ModelConfig:
     # conf_lower: float = 0.25
     # aleatoric_percentile: float = 50
 
-    dips_xthresh: float = 50
+    dips_xthresh: float = 75
     dips_ythresh: float = 0.25
 
     def __post_init__(self):
