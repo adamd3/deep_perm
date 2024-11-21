@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,10 +16,11 @@ from sklearn.preprocessing import StandardScaler
 class ClassSeparabilityAnalyzer:
     """Class to analyze separability of features and classes in a dataset."""
 
-    def __init__(self, features_df, y):
+    def __init__(self, features_df, y, output_dir=None):
         self.features_df = features_df
         self.feature_names = features_df.columns
         self.y = np.array(y)
+        self.output_dir = Path(output_dir) if output_dir else Path.cwd()
 
         # replace NA with median and scale features
         self.X = features_df.replace([np.inf, -np.inf], np.nan).fillna(features_df.median()).values
@@ -140,10 +143,13 @@ class ClassSeparabilityAnalyzer:
 
         axes[1, 2].remove()  # Remove empty subplot
         plt.tight_layout()
-        plt.savefig("feature_metrics_distribution.png")
+
+        # Save the figure
+        output_path = self.output_dir / "feature_metrics_distribution.png"
+        plt.savefig(output_path)
         plt.close()
 
-        return scores_df
+        return scores_df, fig
 
     def _calculate_mahalanobis(self, class_0_data, class_1_data):
         """Calculate Mahalanobis distance between class centroids."""

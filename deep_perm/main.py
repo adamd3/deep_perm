@@ -462,9 +462,10 @@ def main():
         # Create binary outcome based on threshold (same as in preprocessor)
         binary_target = (merged_df[args.target_col] >= preprocessor.threshold).astype(int)
 
-        class_analyzer = ClassSeparabilityAnalyzer(numeric_predictors, binary_target)
+        class_analyzer = ClassSeparabilityAnalyzer(numeric_predictors, binary_target, output_dir=base_output_dir)
 
-        feature_scores = class_analyzer.analyze_feature_separability()
+        feature_scores, fig = class_analyzer.analyze_feature_separability()
+
         logger.info("\nTop 5 most separable features:")
         logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
 
