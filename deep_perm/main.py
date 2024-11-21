@@ -462,18 +462,18 @@ def main():
         # Create binary outcome based on threshold (same as in preprocessor)
         binary_target = (merged_df[args.target_col] >= preprocessor.threshold).astype(int)
 
-        analyzer = ClassSeparabilityAnalyzer(numeric_predictors, binary_target)
+        class_analyzer = ClassSeparabilityAnalyzer(numeric_predictors, binary_target)
 
-        feature_scores = analyzer.analyze_feature_separability()
+        feature_scores = class_analyzer.analyze_feature_separability()
         logger.info("\nTop 5 most separable features:")
         logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
 
-        dr_results = analyzer.analyze_dimensionality_reduction()
-        fig = analyzer.plot_dimensionality_reduction(dr_results)
+        dr_results = class_analyzer.analyze_dimensionality_reduction()
+        fig = class_analyzer.plot_dimensionality_reduction(dr_results)
         fig.savefig(base_output_dir / "class_separability.png")
         plt.close(fig)
 
-        overlap_metrics = analyzer.analyze_class_overlap()
+        overlap_metrics = class_analyzer.analyze_class_overlap()
         logger.info("\nClass overlap metrics (full dataset):")
         for metric, value in overlap_metrics.items():
             logger.info(f"{metric}: {value:.3f}")
@@ -601,10 +601,10 @@ def main():
     # Analyze and visualize results
     logger.info("All runs completed. Analyzing results...")
     analysis_dir = base_output_dir / "analysis"
-    analyzer.plot_results(analysis_dir)
+    model_analyzer.plot_results(analysis_dir)
 
     # Print summary statistics
-    results = analyzer.analyze_results()
+    results = model_analyzer.analyze_results()
     logger.info("\nSummary of results across runs:")
     logger.info(
         f"Mean accuracy: {results['metrics']['accuracy']['mean']:.3f} ± {results['metrics']['accuracy']['std']:.3f}"
