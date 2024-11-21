@@ -79,13 +79,15 @@ class ClassSeparabilityAnalyzer:
             class_0_vals = feature_vals[self.y == 0]
             class_1_vals = feature_vals[self.y == 1]
 
+            # Current metrics
             fisher_score = float(self.fisher_score(i))
             mean_diff = abs(np.mean(class_1_vals) - np.mean(class_0_vals))
-
             pooled_std = np.sqrt((np.var(class_0_vals) + np.var(class_1_vals)) / 2)
             effect_size = mean_diff / pooled_std if pooled_std > 0 else 0.0
-
             overlap_coef = self._calculate_overlap(class_0_vals, class_1_vals)
+
+            # Add normalized mean difference (Cohen's d)
+            cohens_d = mean_diff / np.std(feature_vals) if np.std(feature_vals) > 0 else 0.0
 
             scores.append(
                 {
@@ -95,6 +97,7 @@ class ClassSeparabilityAnalyzer:
                     "mean_diff": mean_diff,
                     "overlap_coefficient": overlap_coef,
                     "effect_size": effect_size,
+                    "cohens_d": cohens_d,
                 }
             )
 
@@ -102,13 +105,15 @@ class ClassSeparabilityAnalyzer:
 
         # Create distribution plots
         plt.rcParams.update({"font.size": 14})
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
         fig.suptitle("Distribution of Feature Separability Metrics", fontsize=16, y=0.95)
 
-        metrics = ["fisher_score", "effect_size", "overlap_coefficient", "mean_diff"]
-        titles = ["Fisher Score", "Effect Size", "Overlap Coefficient", "Mean Difference"]
+        metrics = ["fisher_score", "effect_size", "overlap_coefficient", "mean_diff", "cohens_d"]
+        titles = ["Fisher Score", "Effect Size", "Overlap Coefficient", "Mean Difference", "Cohen's d"]
 
-        for ax, metric, title in zip(axes.ravel(), metrics, titles, strict=False):
+        for idx, (metric, title) in enumerate(zip(metrics, titles, strict=False)):
+            ax = axes[idx // 3, idx % 3]
+
             # Histogram
             sns.histplot(data=scores_df, x=metric, ax=ax, bins=20, alpha=0.6)
 
@@ -133,6 +138,7 @@ class ClassSeparabilityAnalyzer:
             ax.set_title(title)
             ax.set_xlabel(metric.replace("_", " ").title())
 
+        axes[1, 2].remove()  # Remove empty subplot
         plt.tight_layout()
         plt.savefig("feature_metrics_distribution.png")
         plt.close()
