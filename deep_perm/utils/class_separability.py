@@ -82,14 +82,11 @@ class ClassSeparabilityAnalyzer:
             class_0_vals = feature_vals[self.y == 0]
             class_1_vals = feature_vals[self.y == 1]
 
-            # Current metrics
             fisher_score = float(self.fisher_score(i))
             mean_diff = abs(np.mean(class_1_vals) - np.mean(class_0_vals))
             pooled_std = np.sqrt((np.var(class_0_vals) + np.var(class_1_vals)) / 2)
             effect_size = mean_diff / pooled_std if pooled_std > 0 else 0.0
             overlap_coef = self._calculate_overlap(class_0_vals, class_1_vals)
-
-            # Add normalized mean difference (Cohen's d)
             cohens_d = mean_diff / np.std(feature_vals) if np.std(feature_vals) > 0 else 0.0
 
             scores.append(
@@ -97,7 +94,6 @@ class ClassSeparabilityAnalyzer:
                     "feature_name": self.feature_names[i],
                     "feature_idx": i,
                     "fisher_score": fisher_score,
-                    "mean_diff": mean_diff,
                     "overlap_coefficient": overlap_coef,
                     "effect_size": effect_size,
                     "cohens_d": cohens_d,
@@ -108,16 +104,14 @@ class ClassSeparabilityAnalyzer:
 
         # Create distribution plots
         plt.rcParams.update({"font.size": 14})
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
         fig.suptitle("Distribution of Feature Separability Metrics", fontsize=16, y=0.95)
 
-        metrics = ["fisher_score", "effect_size", "overlap_coefficient", "mean_diff", "cohens_d"]
-        titles = ["Fisher Score", "Effect Size", "Overlap Coefficient", "Mean Difference", "Cohen's d"]
+        metrics = ["fisher_score", "effect_size", "overlap_coefficient", "cohens_d"]
+        titles = ["Fisher Score", "Effect Size", "Overlap Coefficient", "Cohen's d"]
 
         for idx, (metric, title) in enumerate(zip(metrics, titles, strict=False)):
-            ax = axes[idx // 3, idx % 3]
-
-            # Histogram
+            ax = axes[idx // 2, idx % 2]
             sns.histplot(data=scores_df, x=metric, ax=ax, bins=20, alpha=0.6)
 
             # Add median line
@@ -132,16 +126,9 @@ class ClassSeparabilityAnalyzer:
                 bbox={"facecolor": "white", "alpha": 0.8},
             )
 
-            # Label top features
-            top_5 = scores_df.nlargest(5, metric)
-            y_max = ax.get_ylim()[1]
-            for _, row in top_5.iterrows():
-                ax.text(row[metric], y_max * 0.95, row["feature_name"][:20], rotation=45, fontsize=8)
-
             ax.set_title(title)
             ax.set_xlabel(metric.replace("_", " ").title())
 
-        axes[1, 2].remove()  # Remove empty subplot
         plt.tight_layout()
 
         # Save the figure
