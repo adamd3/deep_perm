@@ -413,21 +413,53 @@ def main():
     base_output_dir.mkdir(parents=True, exist_ok=True)
 
     analyzer = ModelAnalyzer(base_output_dir, args.n_runs)
-
-    # torch.manual_seed(args.seed)
-    # np.random.seed(args.seed)
-
-    # output_dir = Path(args.output_dir)
-    # output_dir.mkdir(parents=True, exist_ok=True)
-
-    # logger = setup_logger(__name__, output_dir / "training.log")
-    # logger.info(f"Starting experiment with args: {args}")
-    # logger.info(f"Using device: {device}")
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     logger = setup_logger(__name__, base_output_dir / "experiment.log")
     logger.info(f"Starting experiment with {args.n_runs} runs using device: {device}")
+
+    # Load and preprocess data once at the start
+    logger.info("Loading and preprocessing data...")
+    preprocessor = DataPreprocessor()
+    predictors_df = pd.read_csv(args.predictors, sep="\t")
+    outcomes_df = pd.read_csv(args.outcomes, sep="\t")
+    X, y, smiles, outcomes_df = preprocessor.prepare_data(predictors_df, outcomes_df, args.target_col)
+
+    # Create config once (since input_size won't change)
+    config = ModelConfig(
+        input_size=X.shape[1],
+        use_early_stopping=args.early_stopping,
+        scheduler_type=args.scheduler,
+        dips_xthresh=args.dips_xthresh,
+        dips_ythresh=args.dips_ythresh,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+    )
+    logger.info(f"Created model config: {config}")
+
+    # Class separability analysis:
+    if args.class_separability:
+        logger.info("Analyzing class separability on full dataset...")
+        numeric_predictors = predictors_df.select_dtypes(include=[np.number])
+        analyzer = ClassSeparabilityAnalyzer(numeric_predictors, y)
+
+        feature_scores = analyzer.analyze_feature_separability()
+        logger.info("\nTop 5 most separable features:")
+        logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
+
+        dr_results = analyzer.analyze_dimensionality_reduction()
+        fig = analyzer.plot_dimensionality_reduction(dr_results)
+        fig.savefig(base_output_dir / "class_separability.png")
+        plt.close(fig)
+
+        overlap_metrics = analyzer.analyze_class_overlap()
+        logger.info("\nClass overlap metrics (full dataset):")
+        for metric, value in overlap_metrics.items():
+            logger.info(f"{metric}: {value:.3f}")
+
+        feature_scores.to_csv(base_output_dir / "feature_separability.csv", index=False)
+        with open(base_output_dir / "overlap_metrics.json", "w") as f:
+            json.dump(overlap_metrics, f, indent=4)
 
     for run in range(args.n_runs):
         # Set a different but deterministic seed for each run
@@ -438,167 +470,112 @@ def main():
         output_dir = base_output_dir / f"run_{run}"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # logger = setup_logger(__name__, output_dir / "training.log")
-        # logger.info(f"Starting run {run+1}/{args.n_runs}")
-
         run_logger = setup_logger(f"{__name__}.run_{run}", output_dir / "training.log")
         run_logger.info(f"Starting run {run+1}/{args.n_runs} with seed {run_seed}")
 
-        try:
-            # Load and preprocess data
-            logger.info("Loading and preprocessing data...")
-            preprocessor = DataPreprocessor()
-            predictors_df = pd.read_csv(args.predictors, sep="\t")
-            outcomes_df = pd.read_csv(args.outcomes, sep="\t")
-            X, y, smiles, outcomes_df = preprocessor.prepare_data(predictors_df, outcomes_df, args.target_col)
-            # Create config
-            config = ModelConfig(
-                input_size=X.shape[1],
-                use_early_stopping=args.early_stopping,
-                scheduler_type=args.scheduler,
-                # conf_upper=args.conf_upper,
-                # conf_lower=args.conf_lower,
-                # aleatoric_percentile=args.aleatoric_percentile,
-                dips_xthresh=args.dips_xthresh,
-                dips_ythresh=args.dips_ythresh,
-                epochs=args.epochs,
-                batch_size=args.batch_size,
-            )
-            logger.info(f"Created model config: {config}")
+        logger.info("Creating data splits...")
+        splits = create_data_splits(X, y, smiles, random_state=run_seed)
+        (
+            X_train,
+            X_val,
+            X_test,
+            y_train,
+            y_val,
+            y_test,
+            smiles_train,
+            smiles_val,
+            smiles_test,
+            train_indices,
+            val_indices,
+            test_indices,
+        ) = splits
 
-            logger.info("Creating data splits...")
+        # Create datasets and loaders
+        train_dataset = PermeabilityDataset(X_train, y_train)
+        val_dataset = PermeabilityDataset(X_val, y_val)
+        test_dataset = PermeabilityDataset(X_test, y_test)
 
-            splits = create_data_splits(X, y, smiles, random_state=run_seed)
-            (
-                X_train,
-                X_val,
-                X_test,
-                y_train,
-                y_val,
-                y_test,
-                smiles_train,
-                smiles_val,
-                smiles_test,
-                train_indices,
-                val_indices,
-                test_indices,
-            ) = splits
+        # train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        if args.balanced_sampling:
+            train_loader = create_balanced_loader(train_dataset, config.batch_size)
+        else:
+            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
 
-            # Class separability analysis:
-            if args.class_separability:
-                logger.info("Analyzing class separability...")
+        # Debug class distribution
+        total_pos = (train_dataset.y == 1).sum()
+        total_neg = (train_dataset.y == 0).sum()
+        print("Original distribution:")
+        print(f"Positive examples: {total_pos} ({total_pos/len(train_dataset):.3f})")
+        print(f"Negative examples: {total_neg} ({total_neg/len(train_dataset):.3f})")
+        analyze_loader(train_loader, num_batches=100)
 
-                train_predictors = predictors_df.iloc[train_indices]
-                numeric_predictors = train_predictors.select_dtypes(include=[np.number])
+        val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
+        test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
 
-                analyzer = ClassSeparabilityAnalyzer(numeric_predictors, y_train)
+        logger.info("Initializing model and trainer...")
+        model = PermeabilityNet(config).to(device)
+        trainer = PermeabilityTrainer(
+            model,
+            config,
+            device,
+            output_dir,
+            outcomes_df,
+            train_indices,
+            target_col=args.target_col,
+            train_loader=train_loader,
+            use_weighted_loss=args.weighted_loss,
+        )
 
-                feature_scores = analyzer.analyze_feature_separability()
-                logger.info("\nTop 5 most separable features:")
-                logger.info(feature_scores.sort_values("fisher_score", ascending=False).head())
+        logger.info("Starting training...")
+        dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader)
 
-                dr_results = analyzer.analyze_dimensionality_reduction()
-                fig = analyzer.plot_dimensionality_reduction(dr_results)
-                fig.savefig(base_output_dir / "class_separability.png")
-                plt.close(fig)
+        # Log final metrics
+        logger.info("Training completed. Final metrics:")
+        for metric_name, value in final_metrics.items():
+            logger.info(f"{metric_name}: {value:.4f}")
 
-                overlap_metrics = analyzer.analyze_class_overlap()
-                logger.info("\nClass overlap metrics:")
-                for metric, value in overlap_metrics.items():
-                    logger.info(f"{metric}: {value:.3f}")
+        # # Generate feature distribution plots
+        # logger.info("Generating feature distribution plots...")
+        # viz = VisualizationManager(output_dir)
+        # for feature_idx in range(X.shape[1]):
+        #     viz.plot_feature_distributions(X_train, X_val, X_test, feature_idx=feature_idx)
 
-                feature_scores.to_csv(base_output_dir / "feature_separability.csv", index=False)
+        # Save all results
+        logger.info("Saving experiment results...")
+        save_experiment_results(output_dir, metrics_per_epoch, groups, final_metrics, model, config, smiles_train)
 
-            # Create datasets and loaders
-            train_dataset = PermeabilityDataset(X_train, y_train)
-            val_dataset = PermeabilityDataset(X_val, y_val)
-            test_dataset = PermeabilityDataset(X_test, y_test)
+        analyzer.collect_run_results(run)
 
-            # train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
-            if args.balanced_sampling:
-                train_loader = create_balanced_loader(train_dataset, config.batch_size)
-            else:
-                train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+        # Print summary of DataIQ groups
+        group_counts = {group: np.sum(groups == group) for group in ["Easy", "Hard", "Ambiguous"]}
+        logger.info("\nDataIQ Group Summary:")
+        for group, count in group_counts.items():
+            percentage = (count / len(groups)) * 100
+            logger.info(f"{group}: {count} samples ({percentage:.1f}%)")
 
-            # Debug class distribution
-            total_pos = (train_dataset.y == 1).sum()
-            total_neg = (train_dataset.y == 0).sum()
-            print("Original distribution:")
-            print(f"Positive examples: {total_pos} ({total_pos/len(train_dataset):.3f})")
-            print(f"Negative examples: {total_neg} ({total_neg/len(train_dataset):.3f})")
-            analyze_loader(train_loader, num_batches=100)
+        if args.importance:
+            # Get feature names (assuming they're in your predictors file)
+            feature_names = [
+                col
+                for col in pd.read_csv(args.predictors, sep="\t").columns
+                if col not in ["Smiles", "SMILES", "smiles", "Name", "name", "NAME"]
+            ]
 
-            val_loader = DataLoader(val_dataset, batch_size=config.batch_size)
-            test_loader = DataLoader(test_dataset, batch_size=config.batch_size)
-
-            logger.info("Initializing model and trainer...")
-            model = PermeabilityNet(config).to(device)
-            trainer = PermeabilityTrainer(
-                model,
-                config,
-                device,
-                output_dir,
-                outcomes_df,
-                train_indices,
-                target_col=args.target_col,
-                train_loader=train_loader,
-                use_weighted_loss=args.weighted_loss,
+            # Analyze feature importance
+            logger.info("Analyzing feature importance based on ambiguity reduction...")
+            importance_analyzer = FeatureImportanceAnalyzer(output_dir)
+            importance_results = importance_analyzer.analyze_feature_importance(
+                X, y, smiles, feature_names, config, device
             )
 
-            logger.info("Starting training...")
-            dataiq, groups, final_metrics, metrics_per_epoch = trainer.train(train_loader, val_loader, test_loader)
-
-            # Log final metrics
-            logger.info("Training completed. Final metrics:")
-            for metric_name, value in final_metrics.items():
-                logger.info(f"{metric_name}: {value:.4f}")
-
-            # # Generate feature distribution plots
-            # logger.info("Generating feature distribution plots...")
-            # viz = VisualizationManager(output_dir)
-            # for feature_idx in range(X.shape[1]):
-            #     viz.plot_feature_distributions(X_train, X_val, X_test, feature_idx=feature_idx)
-
-            # Save all results
-            logger.info("Saving experiment results...")
-            save_experiment_results(output_dir, metrics_per_epoch, groups, final_metrics, model, config, smiles_train)
-
-            analyzer.collect_run_results(run)
-
-            # Print summary of DataIQ groups
-            group_counts = {group: np.sum(groups == group) for group in ["Easy", "Hard", "Ambiguous"]}
-            logger.info("\nDataIQ Group Summary:")
-            for group, count in group_counts.items():
-                percentage = (count / len(groups)) * 100
-                logger.info(f"{group}: {count} samples ({percentage:.1f}%)")
-
-            if args.importance:
-                # Get feature names (assuming they're in your predictors file)
-                feature_names = [
-                    col
-                    for col in pd.read_csv(args.predictors, sep="\t").columns
-                    if col not in ["Smiles", "SMILES", "smiles", "Name", "name", "NAME"]
-                ]
-
-                # Analyze feature importance
-                logger.info("Analyzing feature importance based on ambiguity reduction...")
-                importance_analyzer = FeatureImportanceAnalyzer(output_dir)
-                importance_results = importance_analyzer.analyze_feature_importance(
-                    X, y, smiles, feature_names, config, device
+            # Log top features
+            logger.info("\nTop 10 features for reducing ambiguity:")
+            for _, row in importance_results.head(10).iterrows():
+                logger.info(
+                    f"{row['feature_name']}: "
+                    f"{row['ambiguity_reduction']:.2f}% reduction "
+                    f"(from {row['baseline_ambiguity']:.1f}% to {row['feature_ambiguity']:.1f}%)"
                 )
-
-                # Log top features
-                logger.info("\nTop 10 features for reducing ambiguity:")
-                for _, row in importance_results.head(10).iterrows():
-                    logger.info(
-                        f"{row['feature_name']}: "
-                        f"{row['ambiguity_reduction']:.2f}% reduction "
-                        f"(from {row['baseline_ambiguity']:.1f}% to {row['feature_ambiguity']:.1f}%)"
-                    )
-
-        except Exception:
-            logger.exception(f"An error occurred during run {run}:")
-            continue
 
     # Analyze and visualize results
     logger.info("All runs completed. Analyzing results...")
