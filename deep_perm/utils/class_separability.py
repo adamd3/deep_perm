@@ -237,9 +237,9 @@ class ClassSeparabilityAnalyzer:
 
         # LDA
         lda = LinearDiscriminantAnalysis()
-        X_lda = lda.fit_transform(self.X_scaled, self.y)
+        X_lda = lda.fit_transform(self.X_scaled, self.y).ravel()
         results["lda"] = {
-            "coords": X_lda,
+            "coords": X_lda,  # Now 1D array
             "explained_var": lda.explained_variance_ratio_,
             "coef": lda.coef_,
             "intercept": lda.intercept_,
@@ -311,15 +311,11 @@ class ClassSeparabilityAnalyzer:
         axes[1, 1].legend()
 
         # LDA distribution plot
-        lda_coords = results["lda"]["coords"].squeeze()  # Remove extra dimension
-        sns.kdeplot(data=lda_coords[self.y == 0], ax=axes[1, 2], label=labels[0], fill=True, alpha=0.5)
-        sns.kdeplot(data=lda_coords[self.y == 1], ax=axes[1, 2], label=labels[1], fill=True, alpha=0.5)
-        axes[1, 2].set_title("LDA Projection\nClass Separation")
-        axes[1, 2].set_xlabel("LDA Component")
-        axes[1, 2].set_ylabel("Density")
-        axes[1, 2].legend()
+        sns.kdeplot(data=results["lda"]["coords"][self.y == 0], ax=axes[1, 2], label=labels[0], fill=True, alpha=0.5)
+        sns.kdeplot(data=results["lda"]["coords"][self.y == 1], ax=axes[1, 2], label=labels[1], fill=True, alpha=0.5)
 
         plt.tight_layout()
+
         return fig
 
     def analyze_class_overlap(self):
