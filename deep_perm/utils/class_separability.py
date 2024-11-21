@@ -311,24 +311,12 @@ class ClassSeparabilityAnalyzer:
         axes[1, 1].legend()
 
         # LDA distribution plot
-        sns.histplot(
-            data=results["lda"]["coords"][self.y == 0],
-            ax=axes[1, 2],
-            label=labels[0],
-            alpha=0.5,
-            stat="density",
-            bins=30,
-        )
-        sns.histplot(
-            data=results["lda"]["coords"][self.y == 1],
-            ax=axes[1, 2],
-            label=labels[1],
-            alpha=0.5,
-            stat="density",
-            bins=30,
-        )
+        lda_coords = results["lda"]["coords"].squeeze()  # Remove extra dimension
+        sns.kdeplot(data=lda_coords[self.y == 0], ax=axes[1, 2], label=labels[0], fill=True, alpha=0.5)
+        sns.kdeplot(data=lda_coords[self.y == 1], ax=axes[1, 2], label=labels[1], fill=True, alpha=0.5)
         axes[1, 2].set_title("LDA Projection\nClass Separation")
         axes[1, 2].set_xlabel("LDA Component")
+        axes[1, 2].set_ylabel("Density")
         axes[1, 2].legend()
 
         plt.tight_layout()
