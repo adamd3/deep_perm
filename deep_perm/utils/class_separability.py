@@ -250,10 +250,10 @@ class ClassSeparabilityAnalyzer:
     def plot_dimensionality_reduction(self, results):
         """Plot results from dimensionality reduction analysis."""
         plt.rcParams.update({"font.size": 14})
-        fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
         labels = ["Impermeant", "Permeant"]
 
-        # PCA plot
+        # PCA plot (top left)
         axes[0, 0].scatter(
             results["pca"]["coords"][self.y == 0, 0],
             results["pca"]["coords"][self.y == 0, 1],
@@ -269,53 +269,43 @@ class ClassSeparabilityAnalyzer:
         axes[0, 0].set_title(
             f"PCA\nSilhouette (full): {results['pca']['silhouette_full']:.2f}\n"
             f"Dims for 90% var: {results['pca']['dims_needed']['dims_for_90%']}",
-            fontsize=16,
         )
         axes[0, 0].legend()
 
-        # Cumulative variance plot
+        # Cumulative variance plot (top right)
         axes[0, 1].plot(np.arange(1, len(results["pca"]["cumulative_var"]) + 1), results["pca"]["cumulative_var"], "-o")
         axes[0, 1].set_xlabel("Number of Components")
         axes[0, 1].set_ylabel("Cumulative Explained Variance")
         axes[0, 1].set_title("PCA Cumulative Variance")
         axes[0, 1].grid(True)
 
-        # t-SNE plots with different perplexities
-        row, col = 0, 2
-        for perp, tsne_data in results["tsne"].items():
-            axes[row, col].scatter(
-                tsne_data["coords"][self.y == 0, 0], tsne_data["coords"][self.y == 0, 1], alpha=0.5, label=labels[0]
-            )
-            axes[row, col].scatter(
-                tsne_data["coords"][self.y == 1, 0], tsne_data["coords"][self.y == 1, 1], alpha=0.5, label=labels[1]
-            )
-            axes[row, col].set_title(f"t-SNE ({perp})\nSilhouette: {tsne_data['silhouette']:.2f}")
-            axes[row, col].legend()
-            row = 1 if col == 2 else row
-            col = 0 if col == 2 else 2
-
-        # UMAP plot
-        axes[1, 1].scatter(
-            results["umap"]["coords"][self.y == 0, 0],
-            results["umap"]["coords"][self.y == 0, 1],
+        # t-SNE plot (bottom left)
+        tsne_data = results["tsne"]["perp_30"]
+        axes[1, 0].scatter(
+            tsne_data["coords"][self.y == 0, 0],
+            tsne_data["coords"][self.y == 0, 1],
             alpha=0.5,
             label=labels[0],
         )
-        axes[1, 1].scatter(
-            results["umap"]["coords"][self.y == 1, 0],
-            results["umap"]["coords"][self.y == 1, 1],
+        axes[1, 0].scatter(
+            tsne_data["coords"][self.y == 1, 0],
+            tsne_data["coords"][self.y == 1, 1],
             alpha=0.5,
             label=labels[1],
         )
-        axes[1, 1].set_title(f"UMAP\nSilhouette: {results['umap']['silhouette']:.2f}")
+        axes[1, 0].set_title(f"t-SNE\nSilhouette: {tsne_data['silhouette']:.2f}")
+        axes[1, 0].legend()
+
+        # LDA distribution plot (bottom right)
+        lda_coords = results["lda"]["coords"].ravel()
+        sns.kdeplot(data=lda_coords[self.y == 0], ax=axes[1, 1], label=labels[0], fill=True, alpha=0.5)
+        sns.kdeplot(data=lda_coords[self.y == 1], ax=axes[1, 1], label=labels[1], fill=True, alpha=0.5)
+        axes[1, 1].set_title("LDA Projection")
+        axes[1, 1].set_xlabel("LDA Component")
+        axes[1, 1].set_ylabel("Density")
         axes[1, 1].legend()
 
-        # LDA distribution plot
-        sns.kdeplot(data=results["lda"]["coords"][self.y == 0], ax=axes[1, 2], label=labels[0], fill=True, alpha=0.5)
-        sns.kdeplot(data=results["lda"]["coords"][self.y == 1], ax=axes[1, 2], label=labels[1], fill=True, alpha=0.5)
-
         plt.tight_layout()
-
         return fig
 
     def analyze_class_overlap(self):
