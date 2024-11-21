@@ -423,6 +423,9 @@ def main():
     predictors_df = pd.read_csv(args.predictors, sep="\t")
     outcomes_df = pd.read_csv(args.outcomes, sep="\t")
 
+    predictors_df.columns = predictors_df.columns.str.lower()
+    outcomes_df.columns = outcomes_df.columns.str.lower()
+
     # Get the merged dataset before preprocessing
     if "smiles" in predictors_df.columns and "smiles" in outcomes_df.columns:
         merged_df = pd.merge(predictors_df, outcomes_df, on="smiles", how="inner")
