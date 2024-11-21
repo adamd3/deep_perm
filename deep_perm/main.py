@@ -412,7 +412,7 @@ def main():
     base_output_dir = Path(args.output_dir)
     base_output_dir.mkdir(parents=True, exist_ok=True)
 
-    analyzer = ModelAnalyzer(base_output_dir, args.n_runs)
+    model_analyzer = ModelAnalyzer(base_output_dir, args.n_runs)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     logger = setup_logger(__name__, base_output_dir / "experiment.log")
@@ -456,7 +456,7 @@ def main():
         logger.info("Analyzing class separability on full dataset...")
 
         # Use the numeric columns from the merged dataset
-        feature_cols = [col for col in merged_df.columns if col not in ["smiles", "name", args.target_col]]
+        feature_cols = [col for col in predictors_df.columns if col not in ["smiles", "name", args.target_col]]
         numeric_predictors = merged_df[feature_cols].select_dtypes(include=[np.number])
 
         # Create binary outcome based on threshold (same as in preprocessor)
@@ -565,7 +565,7 @@ def main():
         logger.info("Saving experiment results...")
         save_experiment_results(output_dir, metrics_per_epoch, groups, final_metrics, model, config, smiles_train)
 
-        analyzer.collect_run_results(run)
+        model_analyzer.collect_run_results(run)
 
         # Print summary of DataIQ groups
         group_counts = {group: np.sum(groups == group) for group in ["Easy", "Hard", "Ambiguous"]}
