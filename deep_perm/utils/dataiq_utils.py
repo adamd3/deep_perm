@@ -6,27 +6,28 @@ def classify_examples(confidence, aleatoric, dips_xthresh, dips_ythresh):
     conf_thresh_low = dips_ythresh
     conf_thresh_high = 1 - dips_ythresh
 
-    alea_perc = np.percentile(aleatoric, dips_xthresh)
-
     groups = np.empty(len(confidence), dtype=object)
 
-    # groups[(confidence >= conf_thresh_high) & (aleatoric <= dips_xthresh)] = "Easy"
-    # groups[(confidence <= conf_thresh_low) & (aleatoric <= dips_xthresh)] = "Hard"
-
-    # groups[
-    #     ~((confidence >= conf_thresh_high) & (aleatoric <= dips_xthresh))
-    #     & ~((confidence <= conf_thresh_low) & (aleatoric <= dips_xthresh))
-    # ] = "Ambiguous"
-
-    groups[(confidence >= conf_thresh_high) & (aleatoric <= alea_perc)] = "Easy"
-    groups[(confidence <= conf_thresh_low) & (aleatoric <= alea_perc)] = "Hard"
+    groups[(confidence >= conf_thresh_high) & (aleatoric <= dips_xthresh)] = "Easy"
+    groups[(confidence <= conf_thresh_low) & (aleatoric <= dips_xthresh)] = "Hard"
 
     groups[
-        ~((confidence >= conf_thresh_high) & (aleatoric <= alea_perc))
-        & ~((confidence <= conf_thresh_low) & (aleatoric <= alea_perc))
+        ~((confidence >= conf_thresh_high) & (aleatoric <= dips_xthresh))
+        & ~((confidence <= conf_thresh_low) & (aleatoric <= dips_xthresh))
     ] = "Ambiguous"
 
-    print(f"Using thresholds: {dips_xthresh}, {alea_perc}, {dips_ythresh}")
+    # percentile-based thresholding
+    # alea_perc = np.percentile(aleatoric, dips_xthresh)
+
+    # groups[(confidence >= conf_thresh_high) & (aleatoric <= alea_perc)] = "Easy"
+    # groups[(confidence <= conf_thresh_low) & (aleatoric <= alea_perc)] = "Hard"
+
+    # groups[
+    #     ~((confidence >= conf_thresh_high) & (aleatoric <= alea_perc))
+    #     & ~((confidence <= conf_thresh_low) & (aleatoric <= alea_perc))
+    # ] = "Ambiguous"
+
+    # print(f"Using thresholds: {dips_xthresh}, {alea_perc}, {dips_ythresh}")
 
     return groups
 

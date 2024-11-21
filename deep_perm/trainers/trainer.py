@@ -187,23 +187,23 @@ class PermeabilityTrainer:
         avg_confidence = np.mean(np.array(self.metrics_per_epoch["confidence"]), axis=0)
         avg_aleatoric = np.mean(aleatoric_vals, axis=0)
 
-        # dips_xthresh = 0.75 * (np.max(aleatoric_vals) - np.min(aleatoric_vals))
-        # dips_ythresh = 0.2
+        # dataiq_xthresh = 0.75 * (np.max(aleatoric_vals) - np.min(aleatoric_vals))
+        # dataiq_ythresh = 0.2
 
-        # if dips_xthresh is 0, choose 75% of the range of aleatoric uncertainty
-        if self.config.dips_xthresh == 0:
-            dips_xthresh = 0.75 * (np.max(aleatoric_vals) - np.min(aleatoric_vals))
+        # if dataiq_xthresh is 0, choose 75% of the range of aleatoric uncertainty
+        if self.config.dataiq_xthresh == 0:
+            dataiq_xthresh = 0.75 * (np.max(aleatoric_vals) - np.min(aleatoric_vals))
         else:
-            dips_xthresh = self.config.dips_xthresh
+            dataiq_xthresh = self.config.dataiq_xthresh
 
-        self.logger.info(f"Using dips_xthresh: {dips_xthresh}")
-        self.logger.info(f"Using dips_ythresh: {self.config.dips_ythresh}")
+        self.logger.info(f"Using dataiq_xthresh: {dataiq_xthresh}")
+        self.logger.info(f"Using dataiq_ythresh: {self.config.dataiq_ythresh}")
 
         groups = classify_examples(
             avg_confidence,
             avg_aleatoric,
-            dips_xthresh=dips_xthresh,
-            dips_ythresh=self.config.dips_ythresh,
+            dataiq_xthresh=dataiq_xthresh,
+            dataiq_ythresh=self.config.dataiq_ythresh,
         )
 
         # DataIQ visualizations

@@ -394,12 +394,12 @@ def main():
     #     "--aleatoric-percentile", type=float, default=50, help="Percentile threshold for aleatoric uncertainty"
     # )
     parser.add_argument(
-        "--dips-xthresh",
+        "--dataiq-xthresh",
         type=float,
-        default=75,
+        default=0,
         help="X-threshold for DataIQ classification. Default (0) = choose automatically",
     )
-    parser.add_argument("--dips-ythresh", type=float, default=0.25, help="Y-threshold for DataIQ classification")
+    parser.add_argument("--dataiq-ythresh", type=float, default=0.25, help="Y-threshold for DataIQ classification")
     parser.add_argument("--epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--n-runs", type=int, default=10, help="Number of runs for analysis")
     parser.add_argument("--batch-size", type=int, default=128, help="Batch size for training")
@@ -444,8 +444,8 @@ def main():
         input_size=X.shape[1],
         use_early_stopping=args.early_stopping,
         scheduler_type=args.scheduler,
-        dips_xthresh=args.dips_xthresh,
-        dips_ythresh=args.dips_ythresh,
+        dataiq_xthresh=args.dataiq_xthresh,
+        dataiq_ythresh=args.dataiq_ythresh,
         epochs=args.epochs,
         batch_size=args.batch_size,
     )
