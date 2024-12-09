@@ -93,19 +93,31 @@ class ModelAnalyzer:
         # First, align examples across runs using SMILES as identifier
         aligned_metrics = {}
         for metric in metrics:
-            # Create matrix where rows are examples and columns are runs
             metric_values = []
             for run_idx, run_df in enumerate(self.dataiq_metrics_per_run):
                 values = run_df.set_index("smiles")[metric]
-                values.name = f"run_{run_idx}"  # Name the series for clear column names
+                values.name = f"run_{run_idx}"
+
+                # Log duplicate SMILES if any
+                duplicates = run_df["smiles"].duplicated(keep=False)
+                if duplicates.any():
+                    dupe_smiles = run_df.loc[duplicates, "smiles"].unique()
+                    print(f"Run {run_idx}, Metric {metric} - Duplicate SMILES found:")
+                    for smiles in dupe_smiles:
+                        dupe_indices = run_df[run_df["smiles"] == smiles].index
+                        print(f"SMILES: {smiles}, Indices: {dupe_indices.tolist()}")
+
                 metric_values.append(values)
+
             metric_matrix = pd.concat(metric_values, axis=1)
             aligned_metrics[metric] = metric_matrix
 
-            # Save aligned metrics for this metric
             metric_matrix.to_csv(output_dir / f"{metric}_aligned.tsv", sep="\t")
 
-            # Also save summary statistics (mean and std) for each example
+            if metric_matrix.index.duplicated().any():
+                print(f"\nDuplicates in final matrix for {metric}:")
+                print(metric_matrix[metric_matrix.index.duplicated(keep=False)])
+
             summary_df = pd.DataFrame(
                 {
                     "mean": metric_matrix.mean(axis=1),
@@ -118,19 +130,15 @@ class ModelAnalyzer:
             summary_df.index.name = "smiles"
             summary_df.to_csv(output_dir / f"{metric}_summary.tsv", sep="\t")
 
-        # 1. Plot standard deviation distribution for each metric
-        plt.figure(figsize=(10, 6))
         std_data = []
         for metric in metrics:
             std_values = aligned_metrics[metric].std(axis=1)
-            std_data.append({"Metric": metric, "Std Dev": std_values})
-        std_df = pd.concat([pd.DataFrame(d) for d in std_data])
+            std_data.extend([{"Metric": metric, "Std Dev": val} for val in std_values])
 
-        # # check for duplicated columns in std_df
-        # std_df = std_df.loc[:, ~std_df.columns.duplicated] if std_df.columns.duplicated().any() else std_df
+        std_df = pd.DataFrame(std_data).reset_index(drop=True)
 
-        print(std_df.columns)
-
+        # Plot
+        plt.figure(figsize=(10, 6))
         sns.violinplot(data=std_df, x="Metric", y="Std Dev")
         plt.title("Distribution of Per-Example Metric Stability Across Runs")
         plt.xticks(rotation=45)
