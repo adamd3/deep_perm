@@ -126,8 +126,11 @@ class ModelAnalyzer:
             std_data.append({"Metric": metric, "Std Dev": std_values})
         std_df = pd.concat([pd.DataFrame(d) for d in std_data])
 
-        # check for duplicated columns in std_df
-        std_df = std_df.loc[:, ~std_df.columns.duplicated] if std_df.columns.duplicated().any() else std_df
+        # # check for duplicated columns in std_df
+        # std_df = std_df.loc[:, ~std_df.columns.duplicated] if std_df.columns.duplicated().any() else std_df
+
+        # print the names of the duplicated columns
+        print(std_df.columns[std_df.columns.duplicated()])
 
         sns.violinplot(data=std_df, x="Metric", y="Std Dev")
         plt.title("Distribution of Per-Example Metric Stability Across Runs")
