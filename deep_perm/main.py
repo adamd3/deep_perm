@@ -521,7 +521,7 @@ def main():
         if args.balanced_sampling:
             train_loader = create_balanced_loader(train_dataset, config.batch_size)
         else:
-            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+            train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, drop_last=True)
 
         # Debug class distribution
         total_pos = (train_dataset.y == 1).sum()

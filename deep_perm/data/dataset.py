@@ -34,4 +34,4 @@ def create_balanced_loader(dataset, batch_size):
 
     sampler = WeightedRandomSampler(weights=weights, num_samples=len(dataset), replacement=True)
 
-    return DataLoader(dataset, batch_size=batch_size, sampler=sampler)
+    return DataLoader(dataset, batch_size=batch_size, sampler=sampler, drop_last=True)
